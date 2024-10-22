@@ -1,0 +1,71 @@
+Sample.ID,Label,Class,Subclass_1,Subclass_2,Subclass_3,Subclass_4,CompoundName2,CompoundName,CAS,InChIKey,Score,KEGG
+X1.1095.5_Alanine,Amino acids,Peptides,Amino acids,Common amino acids,none,none,Alanine,1-1095.5_Alanine,115967-49-2,QNAYBMKLOCPYGJ-REOHCLBHSA-N,1,C00041
+X2.1134.9_Oxalic.acid,Carboxylic acids,Organic acids,Carboxylic acids,Dicarboxylic acids,none,none,Oxalic acid,2-1134.9_Oxalic acid,10377-62-5,MUBZPKHOEPUJKR-UHFFFAOYSA-N,1,C00209
+X3.1242.6_Butyric.acid..4.hydroxy..2TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Hydroxycarboxylic acids,none,none,4-hydroxybutyric acid,"3-1242.6_Butyric acid, 4-hydroxy-[2TMS]",No result,SJZRECIVHVDYJC-UHFFFAOYSA-N,1,C00989
+X4.1162.4_Sulfuric.acid..2TMS.,Inorganic compounds,Inorganic compounds,Inorganic compounds,none,none,none,Sulfuric acid,4-1162.4_Sulfuric acid [2TMS],10404-39-4,undefined,0,C00059
+X5.1382.4_Threonic.acid.1.4.lactone..2TMS.,Lactone,Lactone,Lactone,Cyclic esters,Cyclic esters,NA,"Threonic acid-1,4-lactone","5-1382.4_Threonic acid-1,4-lactone [2TMS]",21730-93-8,SGMJBNSHAZVGMC-STHAYSLISA-N,1,No result
+X6.1326_Succinic.acid..2TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Dicarboxylic acids,none,none,Succinic acid,6-1326_Succinic acid [2TMS],110-15-6,KDYFGRWQOYBRFD-UHFFFAOYSA-N,1,C00042
+X7.1419.6_Butanoic.acid.2.4.dihydroxy...3TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,"2,4-dihydroxy-Butanoic acid","7-1419.6_Butanoic acid,2,4-dihydroxy- [3TMS]",No result,undefined,0,No result
+X8.1414.6_Glutaric.acid..2TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Fatty Acids and Conjugates,Dicarboxylic acids,none,Glutaric acid,8-1414.6_Glutaric acid [2TMS],No result,JFCQEDHGNNZCLN-UHFFFAOYSA-N,1,C00489
+X9.1465.9_Decanoic.acid.n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Decanoic acid,"9-1465.9_Decanoic acid,n- [1TMS]",334-48-5,GHVNFZFCNZKVNT-UHFFFAOYSA-N,1,C01571
+X10.1492.3_Malic.acid..DL...3TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Dicarboxylic acids,none,none,Malic acid,"10-1492.3_Malic acid, DL- [3TMS]",No result,BJEPYKJPYRNKOW-UHFFFAOYSA-N,1,C00711
+X11.2206.3_Tryptophan.L...2TMS.,Amino acids,Peptides,Amino acids,Common amino acids,none,none,L-Tryptophan,"11-2206.3_Tryptophan,L- [2TMS]",73-22-3,QIVBCDIJIAJPQS-VIFPVBQESA-N,1,C00078
+X12.1525_Aspartic.acid..DL...3TMS.,Amino acids,Peptides,Amino acids,Common amino acids,none,none,Aspartic acid,"12-1525_Aspartic acid, DL- [3TMS]",1152-61-0,CKLJMWTZIZZHCS-UHFFFAOYSA-N,1,No result
+X13.1577.5_Benzoic.acid.3.hydroxy...2TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Monocarboxylic acids,hydroxybenzoate,monohydroxybenzoic acid,3-hydroxy Benzoic acid,"13-1577.5_Benzoic acid,3-hydroxy- [2TMS]",10476-50-3,IJFXRHURBJZNAO-UHFFFAOYSA-N,1,C00587
+X14.1630.9_Anthranilic.acid..2TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Benzoates,aminobenzoate,NA,Anthranilic acid,14-1630.9_Anthranilic acid [2TMS],108159-61-1,RWZYAGGXGHYGMB-UHFFFAOYSA-N,1,C00108
+X15.1631.4_Glutamic.acid.DL...3TMS.,Amino acids,Peptides,Amino acids,Common amino acids,none,NA,Glutamic acid,"15-1631.4_Glutamic acid,DL- [3TMS]",19285-83-7,undefined,0,C00302
+X16.1635_Valeric.acid.5.amino...3TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Amino fatty acids,none,5-amino-Valeric acid,"16-1635_Valeric acid,5-amino- [3TMS]",No result,undefined,0,C00431
+X17.1639.5_Benzoic.acid..4.hydroxy...2TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Benzoates,hydroxybenzoate,monohydroxybenzoic acid,4-hydroxy-Benzoic acid,"17-1639.5_Benzoic acid, 4-hydroxy- [2TMS]",114-63-6,FJKROLUGYXJWQN-UHFFFAOYSA-N,1,C00156
+X18.1710.8_Suberic.acid..2TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Dicarboxylic acids,none,Suberic acid,18-1710.8_Suberic acid [2TMS],505-48-6,TYFQFVWCELRYAO-UHFFFAOYSA-N,1,C08278
+X19.1774.2_Ribonic.acid..5TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Sugar acids,none,none,Ribonic acid,19-1774.2_Ribonic acid [5TMS],No result,QXKAIJAYHKCRRA-BXXZVTAOSA-N,1,C01685
+X20.1806.4_Azelaic.acid..2TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Dicarboxylic acids,none,Azelaic acid,20-1806.4_Azelaic acid [2TMS],123-99-9,BDJRBEYXGGNYIS-UHFFFAOYSA-N,1,C08261
+X21.1862.7_Quinic.acid..D......5TMS.,Carboxylic acids,Organic acids,Carboxylic acids,Cyclohexanecarboxylic acid,none,none,D(-)-Quinic acid,"21-1862.7_Quinic acid, D(-)- [5TMS]",77-95-2,AAWZDTNXLSGCEK-LNVDRNJUSA-N,0,No result
+X22.1949_Pentadecanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Pentadecanoic acid,"22-1949_Pentadecanoic acid, n- [1TMS]",1002-84-2,WQEPLUUGTLDZJY-UHFFFAOYSA-N,1,C16537
+X23.1949_Pentadecanoic.acid..n...1TMS..COPY,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Pentadecanoic acid,"23-1949_Pentadecanoic acid, n- [1TMS] COPY",1002-84-2,WQEPLUUGTLDZJY-UHFFFAOYSA-N,1,C16537
+X24.1968.8_Indole.3.acetic.acid..1H...2TMS.,Alkaloids,Phytochemical compounds,Alkaloids,Alkaloids derived from tryptophan and anthranilic acid,Indole alkaloids,none,1H-Indole-3-acetic acid,"24-1968.8_Indole-3-acetic acid, 1H- [2TMS]",24420-86-8,SEOVTRFCIGRIMH-UHFFFAOYSA-N,1,C00954
+X25.1985_Glucopyranose..D...5TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Aldoses,none,none,D-Glucopyranose,"25-1985_Glucopyranose, D- [5TMS]",2280-44-6,WQZGKKKJIJFFOK-GASJEMHNSA-N,1,C00031
+X26.2267_Permethyl.oligosiloxane,Siloxane,Organosilicon,Siloxane,NA,NA,NA,Permethyl-oligosiloxane,26-2267_Permethyl-oligosiloxane,No result,undefined,0,No result
+X27.2050.2_Hexadecanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Hexadecanoic acid,"27-2050.2_Hexadecanoic acid, n- [1TMS]",No result,IPCSVZSSVZVIGE-UHFFFAOYSA-N,1,C00249
+X28.2035.9_.9..Z..Hexadecanoic.acid..1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,9-(Z)-Hexadecanoic acid,28-2035.9_(9-(Z)-Hexadecanoic acid [1TMS],No result,undefined,0,No result
+X29.2038.3_.910..9..Z..Hexadecanoic.acid..1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,9-(Z)-Hexadecanoic acid,29-2038.3_(910; 9-(Z)-Hexadecanoic acid [1TMS],No result,undefined,0,No result
+X30.2091.9_Myo.inositol...6TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Sugar alcohols,none,none,Myo-inositol,30-2091.9_Myo-inositol- [6TMS],173524-45-3,CDAISMWEOUEBRE-UHFFFAOYSA-N,0,No result
+X31.2146.7_Heptadecanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Unsaturated fatty acids,Monounsaturated fatty acids,n-Heptadecanoic acid,"31-2146.7_Heptadecanoic acid, n- [1TMS]",1002-82-0,KEMQGTRYUADPNZ-UHFFFAOYSA-N,1,No result
+X32.2211.1_Octadeadienoic.acid.9.12..Z.Z....n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Unsaturated fatty acids,Polyunsaturated fatty acids,"9,12-Octadeadienoic acid","32-2211.1_Octadeadienoic acid,9,12-(Z,Z)-, n- [1TMS]",No result,undefined,0,No result
+X33.2217.4_Octadecanoic.acid..9..Z....n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,9-(Z)-n-Octadecanoic acid,"33-2217.4_Octadecanoic acid, 9-(Z)-, n- [1TMS]",No result,undefined,0,No result
+X34.2247_Octadecanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Octadecanoic acid ,"34-2247_Octadecanoic acid, n- [1TMS]",126539-56-8,QIQXTHQIDYTFRH-UHFFFAOYSA-N,1,C01530
+X35.2430.3_Myo.inositol.1.phosphate..7TMS.,Phosphoric ester,Organophosphorus compound,Phosphoric ester,Organic hydroxy compound,myo-inositol monophosphate,NA,Myo-inositol-1-phosphate ,35-2430.3_Myo-inositol-1-phosphate [7TMS],29198-86-5,INAPMGSXUVUWAF-LXOASSSBSA-N,1,No result
+X36.Unknown.222_27.4722_331,NA,NA,NA,NA,NA,NA,Unknown 222,36-Unknown 222_27.4722_331,No result,No result,No result,No result
+X37.2456.3_Eicosanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Eicosanoic acid,"37-2456.3_Eicosanoic acid, n- [1TMS]",No result,VKOBVWXKNCXXDE-UHFFFAOYSA-N,1,C06425
+X38.2468_Uridine..3TMS.,Nucleosides,Nucleic acids,Nucleosides,Ribonucleosides,none,none,Uridine,38-2468_Uridine [3TMS],58-96-8,DRTQHJPVMGBUCF-XVFCMESISA-N,1,C00299
+X39.2592_Inosine..4TMS.,Nucleosides,Nucleic acids,Nucleosides,Ribonucleosides,Purine nucleosides,none,Inosine,39-2592_Inosine [4TMS],292853-81-7,UGQMRVRMYYASKQ-KQYNXXCUSA-N,1,C00294
+X40.2612.4_Adenosine..3TMS.,Nucleosides,Nucleic acids,Nucleosides,Ribonucleosides,none,none,Adenosine,40-2612.4_Adenosine [3TMS],30143-02-3,OIRDTQYFTABQOQ-KQYNXXCUSA-N,1,C00212
+X41.2652.4_Docosanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Docosanoic acid,"41-2652.4_Docosanoic acid, n- [1TMS]",112-85-6,UKMSUNONTOPOIO-UHFFFAOYSA-N,1,C08281
+X42.2820.8_Squalene..all.trans.,Prenol Lipids,Lipids,Prenol Lipids,Isoprenoids,C30 isoprenoids (triterpenes),Acyclic triterpenoids,all-trans-Squalene ,"42-2820.8_Squalene, all-trans-",No result,undefined,0,C00751
+X43.2838.7_Tetracosanoic.acid..n...1TMS.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Straight chain fatty acids,none,n-Tetracosanoic acid,"43-2838.7_Tetracosanoic acid, n- [1TMS]",557-59-5,QZZGJDVWLFXDLK-UHFFFAOYSA-N,1,C08320
+X44.2744.9_Tetracosanol..1TMS.,Fatty alcohol,Lipids,Fatty acyls,Fatty alcohol,NA,NA,Tetracosanol,44-2744.9_Tetracosanol [1TMS],No result,undefined,0,No result
+X45.3156.9_Cholesterol..1TMS.,Sterol Lipids,Lipids,Sterol Lipids,Sterols,Cholesterol and derivatives,none,Cholesterol,45-3156.9_Cholesterol [1TMS],22243-67-0,HVYWMOMLDIMFJA-DPAQBDIFSA-N,1,C00187
+X46.3171.3_.861..5.alpha.Cholestan.3.ol..1TMS..,Sterol Lipids,Lipids,Sterol Lipids,Sterols,NA,NA,5-alpha-Cholestan-3-ol,46-3171.3_{861; 5-alpha-Cholestan-3-ol [1TMS]},undefined,QYIXCDOBOSTCEI-QZOHDXHZSA-N,0,No result
+X47.2866_Daidzein..2TMS.,Polyketides,Lipids,Polyketides,Flavonoids,Isoflavonoids,none,Daidzein,47-2866_Daidzein [2TMS],486-66-8,ZQSIJRDFPHDXIC-UHFFFAOYSA-N,1,C10208
+X48.3355.5_beta.Sitosterol..1TMS.,Sterol Lipids,Lipids,Sterol Lipids,Sterols,Stigmasterols and C24-ethyl derivatives,none,beta-Sitosterol,48-3355.5_beta-Sitosterol [1TMS],68555-08-8,KZJWDPNRJALLNS-VJSFXXLFSA-N,1,C01753
+X49.3577.6_Oleanolic.acid..2TMS.,Prenol Lipids,Lipids,Prenol Lipids,Isoprenoids,C30 isoprenoids (triterpenes),Oleanane triterpenoids,Oleanolic acid,49-3577.6_Oleanolic acid [2TMS],508-02-1,MIJYXULNPSFWEK-GTOFXWBISA-N,1,C17148
+X50.3626.6_Ursolic.acid..2TMS.,Prenol Lipids,Lipids,Prenol Lipids,Isoprenoids,C30 isoprenoids (triterpenes),"Taraxastane, ursane and bauerane triterpenoids",Ursolic acid,50-3626.6_Ursolic acid [2TMS],77-52-1,WCGUUGGRBIKTOS-GPOJBZKASA-N,1,C08988
+X51.2768.4_Maltose..D...1MEOX...8TMS.,Carbohydrates,Carbohydrates,Polysaccharides,Disaccharides,none,none,D-Maltose,"51-2768.4_Maltose, D- [1MEOX] [8TMS]",133-99-3,GUBGYTABKSRVRQ-QUYVBRFLSA-N,1,C01971
+X52.2749.1_Trehalose..alpha..alpha....D...8TMS.,Carbohydrates,Carbohydrates,Oligosaccharides,Disaccharides,none,none,alpha-D-Trehalose,"52-2749.1_Trehalose, alpha, alpha'-, D- [8TMS]",No result,undefined,0,C01083
+X53.2407.5_Glucose.6.phosphate..6TMS.,Organophosphorus compound,Organophosphorus compound,Phospho sugar,Aldoses,NA,NA,Glucose-6-phosphate,53-2407.5_Glucose-6-phosphate [6TMS],56-73-5,NBSCHQHZLSJFNQ-GASJEMHNSA-N,1,C00092
+X54.1775.1_Glycerol.3.phosphate..DL...4TMS.,Carbohydrates,Carbohydrates,Polysaccharides,Sugar alcohol,none,none,Glycerol-3-phosphate,"54-1775.1_Glycerol-3-phosphate, DL- [4TMS]",No result,undefined,0,No result
+X55.1881.1_Mannose..D...1MEOX...5TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Aldoses,none,none,D-Mannose,"55-1881.1_Mannose, D- [1MEOX] [5TMS]",147-74-0,WQZGKKKJIJFFOK-QTVWNMPRSA-N,1,C00159
+X56.1892.3_Galactose..D...1MEOX..5TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Aldoses,none,none,D-Galactose,"56-1892.3_Galactose, D- [1MEOX [5TMS]",3646-73-9,WQZGKKKJIJFFOK-SVZMEOIVSA-N,1,C00124
+X57.1837.2_.731..Erythrose..3TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Aldoses,none,none,Erythrose,57-1837.2_[731; Erythrose [3TMS],583-50-6,YTBSYETUWUMLBZ-IUYQGCFVSA-N,1,No result
+X58.1775.1_Glycerol.3.phosphate..DL...4TMS.,Carbohydrates,Carbohydrates,Polysaccharides,Sugar alcohol,none,none,Glycerol-3-phosphate,"58-1775.1_Glycerol-3-phosphate, DL- [4TMS]",No result,undefined,0,No result
+X59.1501.7_Threitol..D...4TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Sugar alcohols,none,none,D-Threitol,"59-1501.7_Threitol, D- [4TMS]",2418-52-2,UNXHWFMMPAWVPI-QWWZWVQMSA-N,1,C16884
+X60.1690.9_Ribose..D...1MEOX...4TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Aldoses,none,none,D-Ribose,"60-1690.9_Ribose, D- [1MEOX] [4TMS]",7296-60-8,SRBFZHDQGSBBOR-TXICZTDVSA-N,1,No result
+X61.1669.2_Xylose..D...1MEOX...4TMS.,Carbohydrates,Carbohydrates,Monosaccharides,Aldoses,none,none,D-Xylose,"61-1669.2_Xylose, D- [1MEOX] [4TMS]",50855-32-8,SRBFZHDQGSBBOR-IOVATXLUSA-N,1,C00181
+Unknown.1,NA,NA,NA,NA,NA,NA,Unknown-1,Unknown-1,No result,No result,No result,No result
+Unknown.2,NA,NA,NA,NA,NA,NA,Unknown-2,Unknown-2,No result,No result,No result,No result
+Unknown.3,NA,NA,NA,NA,NA,NA,Unknown-3,Unknown-3,No result,No result,No result,No result
+Unknown.4,NA,NA,NA,NA,NA,NA,Unknown-4,Unknown-4,No result,No result,No result,No result
+Unknown.5,NA,NA,NA,NA,NA,NA,Unknown-5,Unknown-5,No result,No result,No result,No result
+Unknown.6,NA,NA,NA,NA,NA,NA,Unknown-6,Unknown-6,No result,No result,No result,No result
+Unknown.7,NA,NA,NA,NA,NA,NA,Unknown-7,Unknown-7,No result,No result,No result,No result
+Unknown.8,NA,NA,NA,NA,NA,NA,Unknown-8,Unknown-8,No result,No result,No result,No result
+X62.Vaccenic.acid_C18.1.11E.,Fatty Acids and Conjugates,Lipids,Fatty acyls,Fatty Acids and Conjugates,Unsaturated fatty acids,Monounsaturated fatty acids,Vaccenic acid,62-Vaccenic acid_C18:1(11E),No result,UWHZIFQPPBDJPM-BQYQJAHWSA-N,1,C08367
