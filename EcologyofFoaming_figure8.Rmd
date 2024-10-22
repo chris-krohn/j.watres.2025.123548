@@ -33,7 +33,7 @@ names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD MASTERDATA
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("masterdataProject1C_May24.csv")
+masterdata <- read.csv("./data/masterdataProject1C_May24.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -47,7 +47,7 @@ mutate(across(Observed:pielou_ev, ~as.numeric(.)))
 
 ## TREE DATA
 # BIN ABUNDANCES FOR PHYLOSEQ 
-bindata <- data.frame(read_tsv("18.1CRMITAD.bintableforR.tsv"))
+bindata <- data.frame(read_tsv("./data/18.1CRMITAD.bintableforR.tsv"))
 tpm <- bindata %>% dplyr::select(`Bin.ID`, Completeness, Contamination, starts_with("TPM")) %>% column_to_rownames("Bin.ID")
 completnessdf <- tpm %>% dplyr::select(Completeness, Contamination)
 completnessdf <- completnessdf %>% 
@@ -75,7 +75,7 @@ taxa$Species <-  str_replace_all(taxa$Species, "s__", "")
 taxa[taxa == ""] <- NA
 
 ## TREE FILE FOR PHYLOSEQ
-tree <- ape::read.tree("1CRMITAD.nw")
+tree <- ape::read.tree("./data/1CRMITAD.nw")
 old <- data.frame(tree$tip.label) %>% arrange(desc(tree.tip.label))
 old$tip.label2 <- substr(old$tree.tip.label, start = 1, stop = 12)
 new <- data.frame(rownames(taxa)) %>% arrange(desc(rownames.taxa.))
@@ -154,7 +154,7 @@ tpm <- tpm %>% rename(SteadyState = "S561toS566_AD.AD6",
   dplyr::select(SteadyState, Control15May24,  Control02June24, Treatment15May24, Treatment02June24, Foam02June24)
 
 ## COLOURS
-colstree <- readRDS("treecolsvector") # from 16S data phyla
+colstree <- readRDS("./data/treecolsvector") # from 16S data phyla
 treecols2 <- colstree
 df <- psmelt(ps) %>% 
   dplyr::filter(Abundance > 0) %>% 

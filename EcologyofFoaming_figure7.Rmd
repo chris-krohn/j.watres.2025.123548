@@ -29,7 +29,7 @@ names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD MASTERDATA
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("masterdataProject1C_May24.csv")
+masterdata <- read.csv("./data/masterdataProject1C_May24.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -101,12 +101,12 @@ rm(df, df1, df2)
 
 ## TAXA / METABOLITES PS OBJECT
 # create a metabolome ps object for easy data handling and transformations
-taxa <-  data.frame(read.csv("020604-metabolimicstaxatable.csv")) %>% column_to_rownames("Sample.ID")
+taxa <-  data.frame(read.csv("./data/020604-metabolimicstaxatable.csv")) %>% column_to_rownames("Sample.ID")
 taxa <-  data.frame(t(taxa))
 taxa <-  data.frame(t(taxa))
 
 ## ABUNDANCES OF METABOLITES FOR PS OBJECT
-metabolome <- data.frame(read.csv("020524-metabolimicsresults_responseChris.csv")) 
+metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_responseChris.csv")) 
 # remove first three rows
 metabolome <- metabolome[c(4:nrow(metabolome)),] 
 metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
@@ -127,7 +127,7 @@ sample_data(psmv)$Treatment <-  factor(sample_data(psmv)$Treatment, levels = c("
 
 
 ## LOG ABUNDANCES OF METABOLITES FOR PS OBJECT
- metabolome <- data.frame(read.csv("020524-metabolimicsresults_LOGresponseChris.csv")) 
+ metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseChris.csv")) 
 #LOG - FULL DATA
 #metabolome <- data.frame(read.csv("/Users/christiankrohn/Library/CloudStorage/OneDrive-RMITUniversity/Documents/Project1C_files/Experiment_LongTermMonitoring/Data/Rdata/020524-metabolimicsresults_LOGresponseFULLChris.csv")) 
 # remove first three rows

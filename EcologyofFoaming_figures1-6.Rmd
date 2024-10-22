@@ -29,7 +29,7 @@ names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD masterdata
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("masterdataProject1C_May24.csv")
+masterdata <- read.csv("./data/masterdataProject1C_May24.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -41,7 +41,7 @@ masterdata <- masterdata %>%
 mutate(across(Observed:pielou_ev, ~as.numeric(.)))
 
 # phyloseq objects with abundance data 
-ps_1C <- readRDS("ps_215samplesJul24") # Midas53
+ps_1C <- readRDS("./data/ps_215samplesJul24") # Midas53
 sample_data(ps_1C)$CSTR <- str_replace_all(sample_data(ps_1C)$AD, c("AD1"="C1", 
                                        "AD2"="T1", 
                                           "AD3"="C2", 
