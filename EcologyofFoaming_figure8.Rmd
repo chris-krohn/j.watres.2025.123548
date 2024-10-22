@@ -5,7 +5,7 @@ output:
   html_document:
     df_print: paged
 editor_options:
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ## Load packages and data
@@ -183,7 +183,7 @@ treecols <- c(treecols2, bacillota, desulfob)
 
 ## Figure 8 - tree bins
 
-```{r}
+```{r fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
 ps.phylo <- ps
 # use custom prevalence table function and select phyloseq object and phylum-level
 taxa.df.phylum <- prevalencedf(ps.phylo, Phylum)

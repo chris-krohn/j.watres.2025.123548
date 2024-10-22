@@ -5,7 +5,7 @@ output:
   html_document:
     df_print: paged
 editor_options:
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ## Load packages and data
@@ -761,7 +761,7 @@ p2 <- ggplot( ) +
 ```
 
 ### Combine
-```{r message=FALSE, warning=FALSE}
+```{r fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
 ggarrange(p1, p2, common.legend = TRUE, legend = "top", ncol = 2, heights = c(0.85,1))
 ```
 
@@ -1478,7 +1478,7 @@ p2 <- ggplot(df, aes(x=daysop, y=value, fill=Genus)) +
 ```
 
 ### Combine
-```{r message=FALSE, warning=FALSE}
+```{r fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
 g1 <- ggarrange(p,  ggplot()+theme_void(), 
                 p2, ggplot()+theme_void(), 
                 leg_areaplot, ggplot()+theme_void(), 
@@ -1680,10 +1680,10 @@ pca1 <- pca_helper(psobject, color = "SludgeType", shape = "daysop", title =  NU
 ```
 
 ### Combine
-```{r}
+```{r fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
 g1 <- ggarrange(ggarrange(p, pca1),  ggarrange(lp, lp.g), ncol = 1, nrow = 2, heights = c(0.45,0.55), labels = "AUTO")
 ggsave(plot = g1,  "./Figures/scatterpluslollie_pca.png", height=18, width=24, units='cm', dpi=300)
-
+g1
 ```
 
 
