@@ -1,0 +1,9 @@
+barcode,alias,sample_id,Sample_name,SampleDate,SampleType,DNA_ngmL,pH,TS_ww,VS_ww,COD_mgL,gasflow_Lday,CH4_pcnt,AceticAcid,PropionicAcid,IsobutyricAcid,ButyricAcid,IsovalericAcid,ValericAcid,CaproicAcid
+barcode01,S370_full,#060,Full-scale CSTR,26-Apr-23,Full-scale,277,7.4,2.4,1.68,17950,NA,NA,NA,NA,NA,NA,NA,NA,NA
+barcode02,F82,#085,Feed,4-May-23,PSTWAS,259,5.7,3.15,2.56,28000,NA,NA,NA,NA,NA,NA,NA,NA,NA
+barcode03,S777_AD1,#098,CSTR1,8-May-23,Control,191,7.2,1.75,1.18,14744,3,0.67,19.62,3.38,0.95,0.56,0.54,n.a.,n.a.
+barcode04,S778_AD2,#099,CSTR2,8-May-23,Treatment,161,6.1,1.44,0.98,22369,0.88,0.3,311.17,4964.02,82.77,70.06,143.51,69.3,15.45
+barcode05,S779_AD3,#100,CSTR3,8-May-23,Control,245,7.2,1.94,1.32,16832,3.9,0.65,4.62,11.29,0.48,0.75,3.38,1.46,n.a.
+barcode06,S780_AD4,#101,CSTR4,8-May-23,Control,169,7.2,1.68,1.12,14294,2.16,0.55,80.59,26.13,1.2,1.18,0.92,1.02,n.a.
+barcode07,S781_AD5,#102,CSTR5,8-May-23,Treatment,144,6.2,1.28,0.84,21482,0.77,0.32,594.42,5036.72,101.13,93.93,170.59,186.61,23.83
+barcode08,S782_AD6,#103,CSTR6,8-May-23,Treatment,131,5.8,1.49,1.02,22932,0.61,0.3,1033.01,5618.46,99.64,195.47,179.26,120.43,15.18

@@ -1,6 +1,6 @@
 ---
 title: Ecology of foam establishment during anaerobic digestion of wastewater sludge
-  following process disturbance - Figure 7
+  following process disturbance - Figures 7 and S12 (metabolome)
 output:
   html_document:
     df_print: paged
@@ -150,9 +150,29 @@ psml <-phyloseq(
 )
 sample_data(psml)$Treatment <-  factor(sample_data(psml)$Treatment, levels = c("Control", "Treatment", "Full-scale", "PSTWAS"))
 
-psmv
-psml
-psmlf <- psml
+
+
+#LOG - FULL DATA
+taxa <-  data.frame(read.csv("./data/020524-metabolimicstaxatableFULL.csv")) %>% column_to_rownames("Sample.ID")
+taxa <-  data.frame(t(taxa))
+taxa <-  data.frame(t(taxa))
+metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseFULLChris.csv")) 
+# remove first three rows
+metabolome <- metabolome[c(4:nrow(metabolome)),] 
+metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
+metabolome <- data.frame(t(metabolome)) %>% 
+  rownames_to_column("ID")
+metabolome$ID <- str_replace_all(metabolome$ID, c("X48.53"="S567toS572_AD1.6", "X35"="S371_full",    "X92"="S1007_AD1",    "X93"="S1008_AD2",    "X94"="S1009_AD3",   "X95"="S1010_AD4",    "X96"="S1011_AD5" ,   "X97"="S1012_AD6",    "X101"="S1201_AD1",   "X102"="S1202_AD2",  "X103"= "S1203_AD3" , "X104.2"="S1204_AD4", "X105"="S1205_AD5",  "X107"= "S1275_ADFull",   "X142"="S1556_ADFull",  "X162"="S1815_ADFull",  "X169"= "S1183_AD1",   "X170"="S1183_AD2" ,  "X171"="S1185_AD3",  "X172"="S1186_AD4",   "X173"="S1187_AD5" ,  "X174"="S1188_AD6"))
+metabolome <- metabolome %>% column_to_rownames("ID")
+# rownames(metabolome) <- rnames   # in case for later
+metabolome <- metabolome %>% mutate_if(is.character, as.numeric)
+metabolome <- data.frame(t(metabolome))
+
+psmlf <-phyloseq(
+  otu_table(metabolome, taxa_are_rows = T), 
+  sample_data(metadata),
+  tax_table(as.matrix(taxa))
+)
 ```
 
 
@@ -293,3 +313,30 @@ p1
 ggsave(plot = p1, "./Figures/barplot_metabolites.png", height=7.5, width=6, units='cm', dpi=300)
 ```
 
+## Supp. figure 12 PCA metabolites
+```{r}
+
+xdim <- c(-3,3)
+ydim <- c(-3,3)
+
+# LOG RATIOS FULL
+psobject <- psmlf # data are log-ratios (log(standard/Raw response)) 
+ordination <- phyloseq::ordinate(psobject , "RDA") # using the centred-log transformed abundances
+#plotting ordination
+p3 <- phyloseq::plot_ordination(psobject,
+                                        ordination ,
+                                       shape = "Treatment",
+                                        color = "Treatment"
+                                        # option to add shapes to data symbols
+                                        )  +
+    annotate(geom = 'text', label = paste("Composition of 221 metabolites \n PCA, log(response ratio)"),
+             x = -Inf, y = -Inf, hjust = -0.05, vjust = -0.5, size = 3) +
+          ylim(xdim) + xlim(xdim) + ggtitle("Log(response ratios) of all peaks") +
+           theme(plot.title = element_text(size = 10),
+                 ) +
+  geom_text(aes(label = sample_data(psobject)$Date), nudge_y = -0.12, size = 2, show.legend = FALSE)
+
+p3
+
+ggsave(plot = p3, "./Figures/Sup_metabomlome_allpeaks.png", height=10, width=13, units='cm', dpi=600)
+```
