@@ -181,7 +181,7 @@ treecols <- c(treecols2, bacillota, desulfob)
 ```
 
 
-## Figure test
+## Figure 8
 
 ```{r}
 ps.phylo <- ps
