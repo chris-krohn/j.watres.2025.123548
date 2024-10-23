@@ -5,7 +5,7 @@ output:
   html_document:
     df_print: paged
 editor_options:
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ## Load packages and data
@@ -616,7 +616,7 @@ p2 <- df %>%
   ylab("Relative Abundance") +
   theme_light() +
    theme(
-        axis.title.x = element_blank(),
+        axis.title.x = element_blank(), 
         axis.title.y = element_blank(),
          axis.text.y = element_blank(),
         axis.text.x = element_text(angle = 90,  hjust=1),
@@ -649,7 +649,7 @@ p2 <- df %>%
 ```
 
 ### Combined
-```{r message=FALSE, warning=FALSE}
+```{r fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
 ggarrange(p1, p2, common.legend = TRUE, widths = c(0.52,0.48), legend = "top")
 
 ggsave( "./Figures/Sup_areaplot_all_phylum.png", height=27, width=26, units='cm', dpi=300)
