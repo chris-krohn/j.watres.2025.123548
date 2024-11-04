@@ -1662,9 +1662,11 @@ psobject <-  ps.flt
 sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Date_ST", all_of(c("Date", "SludgeType")),remove = FALSE )
 sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
 psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
-                              c("Control", "Treatment","Foam"))
+                              c("Control", "Treatment","Foam", "PSTWAS"))
 psobject <- subset_samples(psobject, sample_data(psobject)$Date %in% 
-                              c("2023-05-22", "2023-05-29", "2023-06-02","2023-06-05"))
+                              c("2023-05-22","2023-05-24", "2023-05-29", "2023-06-02","2023-06-05"))
+
+ 
 sample_data(psobject)$daysop <- as.factor(sample_data(psobject)$daysop)
 psobject <- prune_taxa(taxa_sums(psobject) > 0.0, psobject)
 
@@ -1675,7 +1677,9 @@ psobject <- microbiome::transform(psobject, "clr")
 pca1 <- pca_helper(psobject, color = "SludgeType", shape = "daysop", title =  NULL) +
   geom_point(size = 3, alpha = 0.5) +
   geom_text_repel(label = sample_data(psobject)$CSTR, nudge_x = 0, nudge_y = 0) +
-  labs(shape = "Day of\noperation", color = "Sludge type")
+  labs(shape = "Day of\noperation", color = "Sludge type") +
+  ylim(-9,9) + xlim(-6,6) +
+  theme(legend.spacing.y = unit(-0.2, 'cm'))
 
 ```
 
