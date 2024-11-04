@@ -1654,6 +1654,82 @@ lp.g <- plodf  %>%
     xlab("") +
     ylab("Shared ASV abundances")
 ```
+### PERMANOVA - Control vs Treatment
+```{r message=FALSE, warning=FALSE}
+psobject <-  ps.flt
+sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Date_ST", all_of(c("Date", "SludgeType")),remove = FALSE )
+sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
+psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
+                              c("Control", "Treatment"))
+psobject <- subset_samples(psobject, sample_data(psobject)$Date %in% 
+                              c("2023-05-22","2023-05-24", "2023-05-29", "2023-06-02","2023-06-05"))
+summary(sample_data(psobject)$SludgeType)
+# Control Treatment 
+#       12        12
+
+summary(sample_sums(psobject))
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  42028   47995   50970   53730   58722   77415 
+
+set.seed(1234)  
+psobject <- phyloseq::rarefy_even_depth(psobject , 
+    sample.size = min(sample_sums(psobject)),  # 42028 
+    rngseed = TRUE, 
+    replace = FALSE, 
+   trimOTUs = TRUE)
+
+# phyloseq-class experiment-level object
+# otu_table()   OTU Table:         [ 2559 taxa and 24 samples ]
+# sample_data() Sample Data:       [ 24 samples by 62 sample variables ]
+# tax_table()   Taxonomy Table:    [ 2559 taxa by 7 taxonomic ranks ]
+# phy_tree()    Phylogenetic Tree: [ 2559 tips and 2529 internal nodes ]
+
+# Permanova
+df <- data.frame(sample_data(psobject))
+pn <- vegan::adonis2(distance(psobject, method = "bray") ~ SludgeType, 
+              data = df)
+pn
+```
+
+
+### PERMANOVA - Treatment vs Foam
+```{r message=FALSE, warning=FALSE}
+psobject <-  ps.flt
+sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Date_ST", all_of(c("Date", "SludgeType")),remove = FALSE )
+sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
+psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
+                              c("Treatment", "Foam"))
+psobject <- subset_samples(psobject, sample_data(psobject)$Date %in% 
+                              c("2023-06-02","2023-06-05"))
+
+summary(sample_data(psobject)$SludgeType)
+# Control Treatment 
+#       6        6
+       
+summary(sample_sums(psobject))
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  36688   43622   48714   50522   56688   66294 
+
+set.seed(1234)  
+psobject <- phyloseq::rarefy_even_depth(psobject , 
+    sample.size = min(sample_sums(psobject)),  #  36688 
+    rngseed = TRUE, 
+    replace = FALSE, 
+   trimOTUs = TRUE)
+
+# phyloseq-class experiment-level object
+# otu_table()   OTU Table:         [ 1671 taxa and 12 samples ]
+# sample_data() Sample Data:       [ 12 samples by 62 sample variables ]
+# tax_table()   Taxonomy Table:    [ 1671 taxa by 7 taxonomic ranks ]
+# phy_tree()    Phylogenetic Tree: [ 1671 tips and 1648 internal nodes ]
+
+# Permanova
+df <- data.frame(sample_data(psobject))
+pn <- vegan::adonis2(distance(psobject, method = "bray") ~ SludgeType, 
+              data = df)
+pn
+```
+
 
 ### PCA 
 combined with scatter plot in taxa.RMd
@@ -1679,7 +1755,10 @@ pca1 <- pca_helper(psobject, color = "SludgeType", shape = "daysop", title =  NU
   geom_text_repel(label = sample_data(psobject)$CSTR, nudge_x = 0, nudge_y = 0) +
   labs(shape = "Day of\noperation", color = "Sludge type") +
   ylim(-9,9) + xlim(-6,6) +
-  theme(legend.spacing.y = unit(-0.2, 'cm'))
+  theme(legend.spacing.y = unit(-0.2, 'cm')) + 
+  annotate(geom = 'text', label = expression("PERMANOVA 1: df=1, F=10.45, R"^2*"=0.32, "*italic(p)~"=0.001, n=12 per group"), x = -6, y = 8.5,
+           hjust = 0, vjust = 0, size = 2.4) + 
+  annotate(geom = 'text', label = expression("PERMANOVA 2: df=1, F=3.67, R"^2*"=0.27, "*italic(p)~"=0.009, n=6 per group"), x = -6, y = 7.5,      hjust = 0, vjust = 0, size = 2.4)
 
 ```
 
