@@ -771,8 +771,8 @@ ggarrange(p1, p2, common.legend = TRUE, legend = "top", ncol = 2, heights = c(0.
 library(ampvis2)
 set.seed(1000)
 psobject <- phyloseq::rarefy_even_depth(ps.flt)
-psobject <- phyloseq::prune_samples(sample_data(psobject)$daysop %in% c(61, 63,64 , 65, 68, 71, 75, 82,89,93,96,105), psobject)
-psobject <- phyloseq::prune_samples(sample_data(psobject)$SludgeType %notin% c("PSTWAS"), psobject)
+psobject <- phyloseq::prune_samples(sample_data(psobject)$daysop %in% c(61, 63,64 , 65, 68, 71, 75, 82,89,93,96), psobject)
+#psobject <- phyloseq::prune_samples(sample_data(psobject)$SludgeType %notin% c("PSTWAS"), psobject)
 psobject <- prune_taxa(taxa_sums(psobject) > 0, psobject) #minimum reads per feature
 df <- data.frame(id = rownames(tax_table(psobject)) %>% sort())
 fvec <- (df %>% dplyr::filter(str_detect(id, c("995713|f30654|5c7527"))))$id  # to remove from heatmap
@@ -790,10 +790,12 @@ h2 <- amp_heatmap(amp, tax_aggregate = "Genus",
                   facet_by = "SludgeType",
                   group_by = "daysop", 
                   plot_values_size = 3,
-                  tax_show = 30, showRemainingTaxa = TRUE, normalise = TRUE) + 
+                  tax_show = 30, showRemainingTaxa = TRUE, normalise = TRUE,
+                  round = 0) + 
   scale_y_discrete(position = "right") +
   theme(
-    axis.text.y = element_text(size = 8)
+    axis.text.y = element_text(size = 9),
+    strip.text.x = element_text( size = 8) 
   )
 ```
 
@@ -1486,7 +1488,7 @@ g1 <- ggarrange(p,  ggplot()+theme_void(),
 g2 <- ggarrange(ggplot() + theme_void(), h2, widths = c(0.05, 0.95))
 g3 <- ggarrange(g1, g2, nrow = 2, labels = "AUTO", heights = c(0.68,0.42))
 g3
-ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.png", height=29, width=22, units='cm', dpi=300)
+ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.png", height=29, width=24, units='cm', dpi=300)
 ```
 
 ## Figure 6
@@ -1654,6 +1656,7 @@ lp.g <- plodf  %>%
     xlab("") +
     ylab("Shared ASV abundances")
 ```
+
 ### PERMANOVA - Control vs Treatment
 ```{r message=FALSE, warning=FALSE}
 psobject <-  ps.flt
@@ -1740,7 +1743,7 @@ sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
 psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
                               c("Control", "Treatment","Foam", "PSTWAS"))
 psobject <- subset_samples(psobject, sample_data(psobject)$Date %in% 
-                              c("2023-05-22","2023-05-24", "2023-05-29", "2023-06-02","2023-06-05"))
+                              c("2023-05-11","2023-05-22", "2023-05-29", "2023-06-02","2023-06-05"))
 
  
 sample_data(psobject)$daysop <- as.factor(sample_data(psobject)$daysop)
@@ -1754,11 +1757,11 @@ pca1 <- pca_helper(psobject, color = "SludgeType", shape = "daysop", title =  NU
   geom_point(size = 3, alpha = 0.5) +
   geom_text_repel(label = sample_data(psobject)$CSTR, nudge_x = 0, nudge_y = 0) +
   labs(shape = "Day of\noperation", color = "Sludge type") +
-  ylim(-9,9) + xlim(-6,6) +
+  ylim(-9,9) + xlim(-8,6) +
   theme(legend.spacing.y = unit(-0.2, 'cm')) + 
-  annotate(geom = 'text', label = expression("PERMANOVA 1: df=1, F=10.45, R"^2*"=0.32, "*italic(p)~"=0.001, n=12 per group"), x = -6, y = 8.5,
+  annotate(geom = 'text', label = expression("PERMANOVA 1: df=1, F=10.45, R"^2*"=0.32, "*italic(p)~"=0.001, n=12 per group"), x = -8, y = 8.5,
            hjust = 0, vjust = 0, size = 2.4) + 
-  annotate(geom = 'text', label = expression("PERMANOVA 2: df=1, F=3.67, R"^2*"=0.27, "*italic(p)~"=0.009, n=6 per group"), x = -6, y = 7.5,      hjust = 0, vjust = 0, size = 2.4)
+  annotate(geom = 'text', label = expression("PERMANOVA 2: df=1, F=3.67, R"^2*"=0.27, "*italic(p)~"=0.009, n=6 per group"), x = -8, y = 7.5,      hjust = 0, vjust = 0, size = 2.4)
 
 ```
 

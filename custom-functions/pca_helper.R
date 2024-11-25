@@ -14,7 +14,7 @@ pca_helper <- function(psobject,color = NULL, shape = NULL, title = NULL) {
                                         title = {{ title }} ) +
     #geom_point(aes(size = Shannon), alpha = 0.3) +    # shape size reflective of Pielou
     annotate(geom = 'text', label = paste("PCA, Aitchison distances"),
-             x = 0, y = -Inf, hjust = -0.05, vjust = -1, size = 3)  +
+             x = -1, y = -Inf, hjust = -0.05, vjust = -1, size = 3)  +
        guides(color = guide_legend(override.aes = list(size = 3)),
            shape = guide_legend(override.aes = list(size = 3), order = 1))
   PCAplot
