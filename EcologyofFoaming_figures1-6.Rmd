@@ -5,7 +5,7 @@ output:
   html_document:
     df_print: paged
 editor_options:
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ## Load packages and data
@@ -18,18 +18,17 @@ library(ggpubr)
 library(lubridate)
 library(ggrepel)
 library(phyloseq)
+library(grid)
 `%notin%` = Negate(`%in%`)
 # Prevalence table function
 # get overview of abundances, mean prevalence is the mean 'appearance' of ASVs of the taxon across all samples
 prevalencedf <- dget("./custom-functions/myprevalencetablefunction.R")
-pca_helper <- dget("./custom-functions/pca_helper.R")
-startoperation <- ymd("2023-03-01")
 cols <- c("#4D98AC", "#985C64", "#ff0000", "purple", "#C4A484")
 names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD masterdata
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("./data/masterdataProject1C_May24.csv")
+masterdata <- read.csv("./data/masterdataProject1C_Jan25.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -41,7 +40,7 @@ masterdata <- masterdata %>%
 mutate(across(Observed:pielou_ev, ~as.numeric(.)))
 
 # phyloseq objects with abundance data 
-ps_1C <- readRDS("./data/ps_215samplesJul24") # Midas53
+ps_1C <- readRDS("./data/ps_215samplesDec24") # Midas53
 sample_data(ps_1C)$CSTR <- str_replace_all(sample_data(ps_1C)$AD, c("AD1"="C1", 
                                        "AD2"="T1", 
                                           "AD3"="C2", 
@@ -50,18 +49,148 @@ sample_data(ps_1C)$CSTR <- str_replace_all(sample_data(ps_1C)$AD, c("AD1"="C1",
                                                "AD6"="T3",
                                                 "AD_full" = "Full-scale") )
 ps.flt  <-  prune_taxa(taxa_sums(ps_1C) >= 10, ps_1C) #minimum reads per feature
+summary(taxa_sums(ps.flt))
 prev.genus <- prevalencedf(ps.flt, Genus)
 ```
 
+## ANCOMBC control vs treatment - inhibition 
+```{r}
+library(ANCOMBC) 
+psobject <- ps.flt
+psobject <-  subset_samples(psobject, sample_data(psobject)$daysop %in% c(72, 75, 82, 89, 93, 96)) # must be at least 6 days for lmer (as there are 6 individual CSTRs)
+psobject <-  subset_samples(psobject, sample_data(psobject)$SludgeType %in% c("Control", "Treatment"))
+psobject <-  prune_taxa(taxa_sums(psobject) > 0, psobject)
+summary(sample_data(psobject)$Treatment)
+sample_data(psobject)$CSTR <- factor(sample_data(psobject)$CSTR)
+summary(sample_data(psobject)$CSTR)
+summary(taxa_sums(psobject))
+
+#output = ancombc2(data = psobject, assay_name = "counts", tax_level = "Genus",
+#                  fix_formula = "Treatment", rand_formula = "(1 | CSTR)",
+#                  p_adj_method = "holm", 
+#                  prv_cut = 0.1, lib_cut = 1, s0_perc = 0.05,
+#                  group = "Treatment", struc_zero = TRUE, neg_lb = FALSE,
+#                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+#                  global = FALSE, pairwise = FALSE,  # global only with >= 3 factors
+#                  dunnet = FALSE, trend = FALSE,
+#                  iter_control = list(tol = 1e-5, max_iter = 20, 
+#                                      verbose = FALSE),
+#                  em_control = list(tol = 1e-5, max_iter = 100),
+#                  lme_control = lme4::lmerControl(), 
+ #                 mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+#                  trend_control = NULL)
+#saveRDS(output, "ancombcoutput-16S-Dec24")
+output <- readRDS("ancombcoutput-16S-Dec24")
+ res = output$res
+```
+
+
+## ANCOMBC treatment over time - inhibition 
+```{r}
+library(ANCOMBC) 
+psobject <- ps.flt
+psobject <-  subset_samples(psobject, sample_data(psobject)$Period %in% c("SteadyState", "Glycerol","Inhibition")) 
+psobject <-  subset_samples(psobject, sample_data(psobject)$week %in% c(8,9,10,11,12)) 
+psobject <-  subset_samples(psobject, sample_data(psobject)$SludgeType %in% c("Treatment"))
+psobject <-  prune_taxa(taxa_sums(psobject) > 0, psobject)
+summary(sample_data(psobject)$Treatment)
+summary(sample_data(psobject)$Period)
+sample_data(psobject)$CSTR <- factor(sample_data(psobject)$CSTR)
+summary(sample_data(psobject)$CSTR)
+summary(taxa_sums(psobject))
+
+#output = ancombc2(data = psobject, assay_name = "counts", tax_level = "Genus",
+#                  fix_formula = "Period", rand_formula = "(1 | CSTR)",
+#                  p_adj_method = "holm", 
+#                  prv_cut = 0.1, lib_cut = 1, s0_perc = 0.05,
+#                  group = "Period", struc_zero = TRUE, neg_lb = FALSE,
+#                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+#                  global = FALSE, pairwise = FALSE,  # global only with >= 3 factors
+#                  dunnet = FALSE, trend = FALSE,
+#                  iter_control = list(tol = 1e-5, max_iter = 20, 
+#                                      verbose = FALSE),
+#                  em_control = list(tol = 1e-5, max_iter = 100),
+#                  lme_control = lme4::lmerControl(), 
+#                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+#                 trend_control = NULL)
+#saveRDS(output, "ancombcoutput-16S-changesPeriod-Dec24")
+output <- readRDS("ancombcoutput-16S-changesPeriod-Dec24")
+res = output$res
+```
+
+## ANCOMBC treatment vs foam  
+```{r}
+# Only works without linear mixed models due to limitation in sample number 
+library(ANCOMBC) 
+psobject <- ps.flt
+psobject <-  subset_samples(psobject, sample_data(psobject)$Period %in% c("Recovery/Foaming")) 
+psobject <-  subset_samples(psobject, sample_data(psobject)$daysop %in% c(93, 96)) 
+psobject <-  subset_samples(psobject, sample_data(psobject)$SludgeType %in% c("Treatment", "Foam"))
+psobject <-  prune_taxa(taxa_sums(psobject) > 0, psobject)
+psobject <-prune_taxa(taxa_names(psobject) %notin% (c("4926740ad76050242313028bae0da97", "35bc159dbc4121c566c448868277eef7", "5793db43329ec1a045b1762ba0ceff0d", "2a8567a60b1f2764fac1ca81bbab7f4e", "f70154af532a1a4a4aab888156a8b3f9")), psobject)
+summary(sample_data(psobject)$SludgeType)
+summary(sample_data(psobject)$Period)
+sample_data(psobject)$daysop <- factor(sample_data(psobject)$daysop)
+summary(sample_data(psobject)$daysop)
+sample_data(psobject)$CSTR <- factor(sample_data(psobject)$CSTR)
+summary(sample_data(psobject)$CSTR)
+summary(taxa_sums(psobject))
+
+output = ancombc2(data = psobject, assay_name = "counts", tax_level = "Genus",
+                  fix_formula = "SludgeType", rand_formula = NULL,
+                  p_adj_method = "holm", 
+                  prv_cut = 0.1, lib_cut = 1, s0_perc = 0.05,
+                  group = "SludgeType", struc_zero = TRUE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = FALSE,  # global only with >= 3 factors
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                 lme_control = lme4::lmerControl(), 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                 trend_control = NULL)
+saveRDS(output, "ancombcoutput-16S-foam-Dec24")
+output <- readRDS("ancombcoutput-16S-foam-Dec24")
+res = output$res
+```
+
+## Pairwise PERMANOVA
+```{r message=FALSE, warning=FALSE}
+### Pairwise PERMANOVA - Control vs Treatment
+psobject <- ps.flt
+psobject <-  subset_samples(psobject, sample_data(psobject)$Period %in% c("Glycerol","Inhibition"))
+#psobject <-  subset_samples(psobject, sample_data(psobject)$daysop %in% c(72, 75, 82)) 
+psobject <-  subset_samples(psobject, sample_data(psobject)$SludgeType %in% c("Control", "Treatment"))
+psobject <-  prune_taxa(taxa_sums(psobject) > 0, psobject)
+summary(sample_data(psobject)$Treatment)
+sample_data(psobject)$CSTR <- factor(sample_data(psobject)$CSTR)
+summary(sample_data(psobject)$CSTR)
+summary(taxa_sums(psobject))
+
+set.seed(1234)  
+psobject <- phyloseq::rarefy_even_depth(psobject , 
+    sample.size = min(sample_sums(psobject)),  # 42028 
+    rngseed = TRUE, 
+    replace = FALSE, 
+   trimOTUs = TRUE)
+
+
+# Permanova
+df <- data.frame(sample_data(psobject))
+with(df, vegan::adonis2(distance(psobject, method = "bray") ~ SludgeType, data = df, 
+                        permutations = 999, strata = CSTR))
+
+```
 
 ## Figure 1
 ### Gas flow
 ```{r message=FALSE, warning=FALSE}
-firstdate <- 47  # selected periods for general manuscript
+firstdate <- 47  # period for figures
 lastdate <- 124
 
-weeky <- c(-1)
-labely <- c(-.4)
+weeky <- c(-1.3)
+labely <- c(-.6)
 segmenty <- c(0)
 generate_vector <- function(x, y) {
   result <- c()
@@ -97,12 +226,13 @@ gflow <- masterdata %>%
          legend = "right",
          add = "mean_se",
          add.params = list(width = 0.75)) +
- scale_color_manual("Sludge Type", values = cols) +
+ scale_color_manual("CSTR", values = cols) +
   theme_light() +
   theme(
+        axis.title.x = element_blank(), 
         axis.text.x = element_text(angle = 0,  hjust=0.5),
         legend.position = c(0.90, 0.82),
-        legend.background=element_rect(fill = alpha("white", 0.5)) )   + 
+        legend.background=element_rect(fill = alpha("white", 0.1)) )   + 
   
    scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
                       minor_breaks = generate_vectorday(firstdate,lastdate),
@@ -132,7 +262,7 @@ gflow <- masterdata %>%
    annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = 86, y = labely, label = "Recovery", size = 2.5) +
+  annotate("text",x = 85.5, y = labely, label = "Recovery", size = 2.5) +
    annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
@@ -149,23 +279,23 @@ gflow <- masterdata %>%
             arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
 
 
-    annotate("text",x = 85, y = 5, label = "  Paused\n  feeding", size = 2.5) +
+    annotate("text",x = 85.5, y = 3.85, label = "Feeding\npaused", size = 3.5, angle = 90, alpha = 0.4) +
     annotate("rect", ymin = 0, ymax = 6,  xmin = 82, xmax = 89,
              fill = "blue", alpha = .1) +
 
-    annotate("text",x = 94.5, y = 7.5, label = "Foam", size = 2.5) +
+    annotate("text",x = 94.5, y = 6.25, label = "Foaming", size = 3, angle = 90, alpha = 0.5) +
     annotate("rect", ymin = 4.5, ymax = 8, xmin = 92, xmax = 97, 
              fill = "blue", alpha = .1) +
   
-  ylab(expression(paste("Gasflow (L day"^-1*")"))) +
-  xlab("Days of operation")
+  ylab(expression(paste("Gasflow (L day"^-1*")")))
+ # xlab("Days of operation")
 ```
 
 ### CH4
 
 ```{r message=FALSE, warning=FALSE}
-weeky <- c(-2.5)
-labely <- c(3)
+weeky <- c(-9)
+labely <- c(-4)
 segmenty <- c(0)
 
 generate_vector <- function(x, y) {
@@ -198,7 +328,7 @@ ch4 <- masterdata %>%
          add.params = list(width = 1)) +
   ylab("CH4 (%)") +
   theme_light() +
-  scale_color_manual("Sludge Type", values = cols)  +
+  scale_color_manual("CSTR", values = cols)  +
   theme(
       axis.text.x = element_text(angle = 0,  hjust=0.5),
         #legend.position = c(0.9, 0.4)
@@ -234,7 +364,7 @@ ch4 <- masterdata %>%
    annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = 86, y = labely, label = "Recovery", size = 2.5) +
+  annotate("text",x = 85.5, y = labely, label = "Recovery", size = 2.5) +
    annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
@@ -254,29 +384,29 @@ ch4 <- masterdata %>%
     #annotate("rect",ymin =5.5, ymax = 300, xmin = as.Date("2023-05-02"), xmax = as.Date("2023-05-7"), 
      #        fill = "blue", alpha = .1) +
 
-    annotate("text",x = 85, y = 20, label = "   Paused\n  feeding", size = 2) +
+    annotate("text",x = 85.5, y = 35, label = "Feeding\npaused", size = 4, alpha = 0.4, angle = 90) +
     annotate("rect", ymin = 0, ymax = 75,  xmin = 82, xmax = 89,
              fill = "blue", alpha = .1) +
 
-    annotate("text",x = 94, y = 65, label = "Foam  ", size = 2) +
+    annotate("text",x = 94.5, y = 67, label = "Foaming", size = 2.5, alpha = 0.5, angle = 90) +
     annotate("rect", ymin = 60, ymax = 75, xmin = 92, xmax = 97, fill = "blue", alpha = .1) +
   
   ylab(expression(paste("CH"[4]*" (%)"))) +
-  xlab("Days of operation")
+  xlab("Day of operation")
 
 ```
 
 ### Combine
 ```{r message=FALSE, warning=FALSE}
-ggarrange(gflow, ch4, labels = "AUTO", ncol = 1)
+ggarrange(gflow, ch4, labels = "AUTO", ncol = 1, align = "hv")
 ggsave("./Figures/lineplot_gasdailyCH4_select_inclAD4-daysop.png", height=15, width=16.5, units='cm', dpi=300)
 ```
 
-## Figure 2
-### VFAs
+
+### Alcohols (not included)
 ```{r message=FALSE, warning=FALSE}
-weeky <- c(-150)
-labely <- c(50)
+weeky <- c(-0.2)
+labely <- c(-.5)
 segmenty <- c(0)
 generate_vector <- function(x, y) {
   result <- c()
@@ -301,20 +431,20 @@ VFAs <- masterdata %>%
 
 # Control
 p1 <- VFAs %>% 
-  pivot_longer(Acetic.acid:Hexanoic.acid, names_to = "Compound") %>% 
+  pivot_longer(Ethanol:X1.Hexanol, names_to = "Compound") %>% 
  dplyr::filter(Treatment %in% c("Control")) %>% 
  # dplyr::filter(AD != c("AD3")) %>% 
-  group_by(daysop, Compound, Treatment) %>% 
+  group_by(AD, daysop, Compound, Treatment) %>% 
   summarise(value = median(value)) %>% 
 ggplot(., aes(x=daysop, y=value, fill=Compound)) + 
     geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
-  facet_wrap(vars(Treatment)) +
+  facet_wrap(vars(AD)) +
   ylab(expression(paste("Concentration (mg L"^-1*")"))) + 
-  scale_fill_viridis_d(labels = c("Acetic acid"," Butyric acid","Hexanoic acid","iso-Butyric acid","iso-Valeric acic","Propionic acid", "Valeric acid", "4-Methylvaleric acid")) +
+  scale_fill_viridis_d(labels = c("Butanol","Ethanol"," Propanol","Hexanol")) +
   theme_light() +
   theme( 
         axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 0,  hjust=1, vjust = 0.5)
+       # axis.text.x = element_text(angle = 0,  hjust=1, vjust = 0)
         ) + 
   
    scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
@@ -333,17 +463,17 @@ ggplot(., aes(x=daysop, y=value, fill=Compound)) +
    annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
    annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
   
-  ylim(weeky, 5000)  +
+  ylim(weeky, 6)  +
   
   guides(fill = guide_legend(override.aes = list(size = 4), 
           keywidth = 0.5, 
           keyheight = 0.5))   + 
   
-  annotate("text",x = 85, y = 4000, label = "Feeding paused", size = 2.5, angle = 90) +
-    annotate("rect", ymin = 0, ymax = 5000,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) 
+  annotate("text",x = 85, y = 4, label = "Feeding paused", size = 3, angle = 90, alpha = .6) +
+    annotate("rect", ymin = 0, ymax = 6,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) 
 
 # Treatment
-p2 <- VFAs %>% pivot_longer(Acetic.acid:Hexanoic.acid, names_to = "Compound") %>% 
+p2 <- VFAs %>% pivot_longer(Ethanol:X1.Hexanol, names_to = "Compound") %>% 
  dplyr::filter(Treatment %in% c("Treatment")) %>% 
   group_by(daysop, Compound, Treatment) %>% 
   summarise(value = median(value)) %>% 
@@ -351,14 +481,15 @@ ggplot(., aes(x=daysop, y=value, fill=Compound)) +
     geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
   facet_wrap(vars(Treatment)) +
   #ylab("Concentration (mg/L)") +
-  scale_fill_viridis_d(labels = c("Acetic acid"," Butyric acid","Hexanoic acid","iso-Butyric acid","iso-Valeric acic","Propionic acid", "Valeric acid", "4-Methylvaleric acid")) +
+  scale_fill_viridis_d(labels = c("Butanol","Ethanol"," Propanol","Hexanol")) +
   theme_light() +
   theme(
         axis.ticks.y = element_blank(),
         axis.text.y = element_blank(),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
-        axis.text.x = element_text(angle = 0,  hjust=1, vjust = 0.5))  + 
+        #axis.text.x = element_text(angle = 0,  hjust=1, vjust = 0.5)
+        )  + 
   
    scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
                       minor_breaks = generate_vectorday(firstdate,lastdate),
@@ -376,30 +507,33 @@ ggplot(., aes(x=daysop, y=value, fill=Compound)) +
    annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
    annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
   
-    annotate("text",x = 64, y = 3600, label = "Glycerol added", size = 2.5, angle = 90) +
-    annotate("rect",ymin =0, ymax = 5000, xmin = 62, xmax = 66, fill = "blue", alpha = .1) +
+    annotate("text",x = 64, y = 4, label = "Glycerol added", size = 3, angle = 90, alpha = .6) +
+    annotate("rect",ymin =0, ymax = 6, xmin = 62, xmax = 66, fill = "blue", alpha = .1) +
 
-    annotate("text",x = 85, y = 4000, label = "Feeding paused", size = 2.5, angle = 90) +
-    annotate("rect", ymin = 0, ymax = 5000,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+    annotate("text",x = 85, y = 4, label = "Feeding paused", size = 3, angle = 90, alpha = .6) +
+    annotate("rect", ymin = 0, ymax = 6,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
 
-    annotate("text",x = 94, y = 4000, label = "Foam observed", size = 2.5, angle = 90) +
-    annotate("rect", ymin = 0, ymax = 5000, xmin =92, xmax = 97, fill = "blue", alpha = .1)  +
+    annotate("text",x = 94, y = 4, label = "Foam observed", size = 3, angle = 90, alpha = .6) +
+    annotate("rect", ymin = 0, ymax = 6, xmin =92, xmax = 97, fill = "blue", alpha = .1)  +
   
   guides(fill = guide_legend(override.aes = list(size = 4), 
           keywidth = 0.5, 
           keyheight = 0.5))
 
 g1 <- ggarrange(p1, theme_void(), p2, common.legend = TRUE, nrow = 1, legend = "top", align = "v", 
-                widths = c(1,-0.02,1) )
-g1
-ggsave(plot = g1,  "./Figures/areaplot_vfas_daysop.png", height=9, width=18, units='cm', dpi=300)
+                widths = c(1,-0.02,0.9) )
+
+g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
+
+ggsave(plot = g1,  "./Figures/areaplot_alco_daysop.pdf", height=9, width=17, units='cm', dpi=300)
 ```
 
-## Figure 3
+
+## Figure 2
 ### DNA mgL
 ```{r message=FALSE, warning=FALSE}
-weeky <- c(-2)
-labely <- c(2)
+weeky <- c(-3.5)
+labely <- c(-1.5)
 segmenty <- c(0)
 
 generate_vector <- function(x, y) {
@@ -427,14 +561,29 @@ masterdata %>% dplyr::filter(DNA_mgLSludge > 0 &
   ggline(x = "daysop",
          y = "DNA_mgLSludge", 
          color = "SludgeType",
-         legend = "right",
+         shape = "SludgeType",
+         legend = "top",
          add = "mean_se",
        # add = "loess",
          add.params = list(width = 0.5)) +
- scale_color_manual("Treatment", values = cols) +
+  
+    scale_color_manual("Sludge type", 
+        values = cols, labels=c('Control CSTR', 'Treatment CSTR', 'Foam', "PS/TWAS")) +
+    scale_shape_manual(values = c(15, 15, 16, 17)) +
+  
+  guides(color = guide_legend( 
+    override.aes=list(shape = c(15, 15, 16, 17))),
+    shape = "none") +
+
   theme_light() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 0,  hjust=.5))  + 
+  
+  theme(
+      #axis.title.x = element_blank(),
+      #axis.text.x = element_text(angle = 0,  hjust=.5)
+      legend.position = c(0.88, 0.82),
+      legend.background=element_rect(fill = alpha("white", 0.1)),
+      legend.key.height = unit(0.7, "line")  # Adjust this value to make the legend shorter
+      )  + 
   
    scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
                       minor_breaks = generate_vectorday(firstdate,lastdate),
@@ -465,7 +614,7 @@ masterdata %>% dplyr::filter(DNA_mgLSludge > 0 &
    annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = 86, y = labely, label = "Recovery", size = 2.5) +
+  annotate("text",x = 85, y = labely, label = "  Recovery", size = 2.5) +
    annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
@@ -473,7 +622,7 @@ masterdata %>% dplyr::filter(DNA_mgLSludge > 0 &
    annotate("segment", y = segmenty, yend = segmenty, x = 90, xend = 98,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-    annotate("text",x = 101, y = labely, label = "    Recovery", size = 2.5) +
+    annotate("text",x = 101, y = labely, label = "  Recovery", size = 2.5) +
    annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 106,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
@@ -485,294 +634,80 @@ masterdata %>% dplyr::filter(DNA_mgLSludge > 0 &
     annotate("text",x = 85, y = 10, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
     annotate("rect", ymin = 0, ymax = 20, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
 
-  ylab(expression(paste("DNA (mg L"^-1*"sludge)"))) 
+  ylab(expression(paste("DNA (mg L"^-1*"sludge)"))) +
+  xlab("Day of operation")
+  
+  ylim(0,30)
 
 ggsave("./Figures/lineplot_dnamgL_daysop.png", height=3, width=6.75, units='in', dpi=300)
 ```
 
 ## Figure 4
-### Methanogens Control - incl CH4 line 
-```{r message=FALSE, warning=FALSE}
-firstdate <- 33
-lastdate <- 166
 
-weeky <- c(-0.5)
-labely <- c(.05)
-segmenty <- c(0)
-generate_vector <- function(x, y) {
-  result <- c()
-  while (x <= y) {
-    result <- c(result, x)
-    x <- x + 7
-  }
-  return(result)
-}
 
-generate_vectorday <- function(x, y) {
-  result <- c()
-  while (x <= y) {
-    result <- c(result, x)
-    x <- x + 1
-  }
-  return(result)
-}
-ordervec <- (prev.genus %>% dplyr::filter(Rel_abundance > 0.075))$Genus
+### Sørensen distance
+```{r}
+# Filter
+firstdate <- 54  # selected period
+lastdate <- 117
 
-ps.rel <- microbiome::aggregate_taxa(ps.flt, "Genus")
-ps.rel <- phyloseq::subset_taxa(ps.rel , Genus %in% ordervec)
+psobject <- subset_samples(ps.flt, sample_data(ps.flt)$SludgeType %in% 
+                              c("Control", "Treatment"))
+psobject <- subset_samples(psobject, sample_data(psobject)$daysop %in% 
+                              c(firstdate:lastdate))
+psobject <- prune_taxa(taxa_sums(psobject) > 0.0, psobject)
 
-ps.rel <- ps.rel %>% 
-  microbiome::transform(transform = 'compositional')
-df <- phyloseq::psmelt(ps.rel)
+# Assuming you have a phyloseq object named `ps`
+# Calculate the Sørensen distance (which is equivalent to 'binary' with vegdist)
+sorensen_dist <- phyloseq::distance(psobject, method = "bray", binary = TRUE)
 
-## combine CH4 data with abundance data 
-df_CH4 <- masterdata %>% filter(CH4_pct > 0) %>% 
-  dplyr::select(AD, daysop, CH4_pct, CH4_L_kgVS)
-temp <- df_CH4 %>% 
-  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
-temp2 <- df %>% 
-  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
-temp3 <- temp %>% full_join(temp2, by = NULL) 
-
-data <- temp3 %>% 
-  group_by(daysop, Kingdom, Genus, AD, SludgeType) %>%          # for Archaea abundances 
-  summarise_at(vars(Abundance, CH4_pct), mean, na.rm = TRUE) 
-
-data$CSTR <- str_replace_all(data$AD, c("AD1"="C1", 
-                                       "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "AD_full" = "Full-scale") )
-
-data <- data %>% mutate(Abundance = Abundance * 100)
-data2 <- data  %>%  ungroup() %>%                             # For CH4 concentrations
-    dplyr::select(daysop, AD, SludgeType, CH4_pct) %>% 
-  dplyr::filter(CH4_pct > 0 )
-
-data2$CSTR <- str_replace_all(data2$AD, c("AD1"="C1", 
-                                       "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "AD_full" = "Full-scale") )
-p1 <- ggplot( ) + 
-      geom_area( data = 
-                   (data %>% dplyr::filter(Kingdom %in% c("Archaea")) %>% 
-                     #dplyr::filter(Abundance > 0) %>% 
-                 #     dplyr::filter(AD %in% c("AD1")) %>%               # Filter ADs
-            dplyr::filter(SludgeType %in% c("Control"))),   # Filter Treatments/SludgeType
-                                  
-        aes(x=daysop,  y=Abundance, fill=Genus), alpha=0.6 ,
-        linewidth=.1, colour="white", 
-        position = "stack") +
-
-  geom_line(data =  (data2  %>% 
-  dplyr::filter(SludgeType %in% c("Control")) %>%    # Filter Treatments/SludgeType
-  # dplyr::filter(AD %in% c("AD1")) %>%                           # Filter ADs
-    unique() ) ,               
-      aes(y=CH4_pct / 4.67, x = daysop, color = SludgeType),
-    linetype = 5) + # Divide by x to get the same range than the temperature
-    # add second y axis
-    scale_y_continuous(
-    # Features of the first axis
-    name = "Relative abundance (%)",
-    
-    # Add a second axis and specify its features
-    sec.axis = sec_axis(~.*4.55 , name="CH4 (%)")
-  ) +
-
-  scale_color_manual("CH4",values = "black") +
-  guides(colour = "none") +
-  facet_wrap(vars(CSTR), ncol = 1 ) +
-  theme_light() +
- # scale_color_manual("Treatment", values = cols)  +
-  theme(
+# Convert distance matrix to a dataframe for plotting
+sorensen_dist_df <- as.data.frame(as.matrix(sorensen_dist)) %>% rownames_to_column("Var1")
+sorensen_dist_df <- reshape2::melt(sorensen_dist_df) %>% rename(Sorensen = "value") %>% rename(Var2 = "variable")
+# combine with metadata
+metadata <- data.frame(sample_data(psobject))
+metadata$Var1 <- rownames(metadata)
+plotdf <- sorensen_dist_df %>% left_join(metadata, by = "Var1") %>% 
+  dplyr::filter(Sorensen > 0)
+plotdf$daysop
+# Plot using ggplot2
+sor1 <- ggplot(plotdf %>% dplyr::filter(SludgeType %in% c("Control")), aes(x=daysop, y=Sorensen)) +
+  geom_boxplot(aes(group=factor(daysop), ),outlier.alpha = 0.1,fill = cols['Control']) +  # Group by factor for boxplot
+  #geom_point(position=position_jitter(width=0.05), alpha=0.005) + # Show points
+  theme_minimal() +
+  labs(x="Day of operation",
+       y="ASV turnover") +
+  theme(plot.title = element_text(hjust = 0.5),
         axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 90,  hjust=1, vjust = 0.5),
-        legend.position = "top")   +
-
-     scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
-                      minor_breaks = generate_vectorday(firstdate,lastdate),
-               limits = c(firstdate, lastdate) )  +
-  
-  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-  # annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
-  # annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-  # annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-  # annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-  # annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
-  
-   annotate("text",x = 85, y = 7, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
-    annotate("rect", ymin = 0, ymax = 15, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+        axis.text.x = element_blank()
+        ) +   
   ggtitle("Control")
 
-```
-
-### Methanogens Treatment - incl CH4 line 
-```{r message=FALSE, warning=FALSE}
-weeky <- c(-0.5)
-labely <- c(.05)
-segmenty <- c(0)
-
-generate_vector <- function(x, y) {
-  result <- c()
-  while (x <= y) {
-    result <- c(result, x)
-    x <- x + 7
-  }
-  return(result)
-}
-
-generate_vectorday <- function(x, y) {
-  result <- c()
-  while (x <= y) {
-    result <- c(result, x)
-    x <- x + 1
-  }
-  return(result)
-}
-
-ordervec <- (prev.genus %>% dplyr::filter(Rel_abundance > 0.075))$Genus
-
-ps.rel <- microbiome::aggregate_taxa(ps.flt, "Genus")
-ps.rel <- phyloseq::subset_taxa(ps.rel , Genus %in% ordervec)
-
-ps.rel <- ps.rel %>% 
-  microbiome::transform(transform = 'compositional')
-df <- phyloseq::psmelt(ps.rel)
-
-## combine CH4 data with abundance data 
-df_CH4 <- masterdata %>% filter(CH4_pct > 0) %>% 
-  dplyr::select(AD, daysop, CH4_pct, CH4_L_kgVS)
-temp <- df_CH4 %>% 
-  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
-temp2 <- df %>% 
-  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
-temp3 <- temp %>% 
-  full_join(temp2, by = NULL) 
-
-data <- temp3 %>%                                             # For archaea abundances 
-  group_by(daysop, Kingdom, Genus, AD, SludgeType) %>% 
-  summarise_at(vars(Abundance, CH4_pct), mean, na.rm = FALSE) 
-#data$CSTR <- str_replace_all(data$AD, c("AD1"="CSTR1", 
-#                                       "AD2"="CSTR2", 
-#                                          "AD3"="CSTR3", 
-#                                            "AD4"="CSTR4", 
-#                                              "AD5"="CSTR5", 
-#                                               "AD6"="CSTR6",
-#                                                "AD_full" = "Full-scale") )  
-
-data$CSTR <- str_replace_all(data$AD, c("AD1"="C1", 
-                                       "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "AD_full" = "Full-scale") )
-
-data <- data %>% mutate(Abundance = Abundance * 100)
-data2 <- data %>%  ungroup() %>%                             # For CH4 concentrations
-    dplyr::select(daysop, AD, SludgeType, CH4_pct) %>% 
-  dplyr::filter(CH4_pct > 0 )
-#data2$CSTR <- str_replace_all(data2$AD, c("AD1"="CSTR1", 
-#                                       "AD2"="CSTR2", 
-#                                          "AD3"="CSTR3", 
-#                                            "AD4"="CSTR4", 
-#                                              "AD5"="CSTR5", 
-#                                               "AD6"="CSTR6",
-#                                                "AD_full" = "Full-scale") ) 
-data2$CSTR <- str_replace_all(data2$AD, c("AD1"="C1", 
-                                       "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "AD_full" = "Full-scale") )
-
-p2 <- ggplot( ) + 
-      geom_area( data = 
-                   (data %>% dplyr::filter(Kingdom %in% c("Archaea")) %>% 
-                     #dplyr::filter(Abundance > 0) %>% 
-                    # dplyr::filter(AD %in% c("AD5")) %>%               # Filter ADs
-            dplyr::filter(SludgeType %in% c("Treatment"))),   # Filter Treatments/SludgeType
-                                  
-        aes(x=daysop,  y=Abundance, fill=Genus), alpha=0.6 ,
-        linewidth=.1, colour="white", 
-        position = "stack") +
-  geom_line(data =  (data2  %>% 
-  dplyr::filter(SludgeType %in% c("Treatment")) %>%    # Filter Treatments/SludgeType
-  # dplyr::filter(AD %in% c("AD1")) %>%                           # Filter ADs
-    unique() ) ,               
-      aes(y=CH4_pct / 4.67, x = daysop, color = SludgeType),
-    linetype = 5) + # Divide by x to get the same range than the temperature
-    # add second y axis
-    scale_y_continuous(
-    # Features of the first axis
-    name = "Relative abundance (%)",
-    
-    # Add a second axis and specify its features
-    sec.axis = sec_axis(~.*4.55, name="CH4 (%)")
-  ) +
-   scale_color_manual("CH4",values = "black") +
-  guides(colour = "none") +
-  facet_wrap(vars(CSTR), ncol = 1) +
-
-#  ylab("Relative Abundance") +
-  theme_light() +
- # scale_color_manual("Treatment", values = cols)  +
-  theme(axis.title.x = element_blank(),
-        #axis.text.x = element_blank(),
-        axis.text.x = element_text(angle = 90,  hjust=1, vjust = 0.5),
-        legend.position = "top")   +
-  
-       scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
-                      minor_breaks = generate_vectorday(firstdate,lastdate),
-               limits = c(firstdate, lastdate) )  +
-  
-  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-   #annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
-   #annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-   #annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-   #annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-   #annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
-  
-   annotate("text",x = 85, y = 7, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
-    annotate("rect", ymin = 0, ymax = 15, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
-  
-  annotate("text",x = 64, y = 5, label = "Glycerol added", size = 3, angle = 90, alpha = 0.5) +
-    annotate("rect",ymin =0, ymax = 15, xmin = 62, xmax = 64, fill = "blue", alpha = .1) +
-  
-    annotate("text",x = 94, y = 7, label = "Foam observed", size = 3, angle = 90, alpha = 0.5) +
-    annotate("rect",ymin =0, ymax = 15, xmin = 93, xmax = 96, fill = "blue", alpha = .1) +
+sor2 <- ggplot(plotdf %>% dplyr::filter(SludgeType %in% c("Treatment")), aes(x=daysop, y=Sorensen)) +
+  geom_boxplot(aes(group=factor(daysop)),outlier.alpha = 0.1,fill = cols['Treatment']) +  # Group by factor for boxplot
+  #geom_point(position=position_jitter(width=0.05), alpha=0.005) + # Show points
+  theme_minimal() +
+  labs(x="Day of operation",
+       y="Sørensen Distance") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank()
+        )  + 
   ggtitle("Treatment")
+
 ```
 
-### Combine
-```{r fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
-ggarrange(p1, p2, common.legend = TRUE, legend = "top", ncol = 2, heights = c(0.85,1))
-```
 
-## Figure 5
-#### ampviz heatmap top 30 genus-level - foam
+### ampviz heatmap top 30 genus-level - foam
 ```{r message=FALSE, warning=FALSE}
 library(ampvis2)
 set.seed(1000)
 psobject <- phyloseq::rarefy_even_depth(ps.flt)
 psobject <- phyloseq::prune_samples(sample_data(psobject)$daysop %in% c(61, 63,64 , 65, 68, 71, 75, 82,89,93,96), psobject)
-#psobject <- phyloseq::prune_samples(sample_data(psobject)$SludgeType %notin% c("PSTWAS"), psobject)
+psobject <- phyloseq::prune_samples(sample_data(psobject)$daysop %in% c(61:117), psobject)
+psobject <- phyloseq::prune_samples(sample_data(psobject)$SludgeType %notin% c("PSTWAS", "Full-scale"), psobject)
 psobject <- prune_taxa(taxa_sums(psobject) > 0, psobject) #minimum reads per feature
 df <- data.frame(id = rownames(tax_table(psobject)) %>% sort())
 fvec <- (df %>% dplyr::filter(str_detect(id, c("995713|f30654|5c7527"))))$id  # to remove from heatmap
@@ -780,6 +715,7 @@ psobject <-subset_taxa(psobject, rownames(tax_table(psobject)) %notin% c(fvec))
 prev.genus <- prevalencedf(psobject, Genus) # to filter top 30 for area plot later
 metaobject <- data.frame(sample_data(psobject)) %>% 
   rownames_to_column("#OTU ID") 
+
 taxtable <- data.frame(tax_table(psobject)) 
 ASVtable <- data.frame(otu_table(psobject))
 amp <- amp_load(otutable = ASVtable,
@@ -795,13 +731,14 @@ h2 <- amp_heatmap(amp, tax_aggregate = "Genus",
   scale_y_discrete(position = "right") +
   theme(
     axis.text.y = element_text(size = 9),
-    strip.text.x = element_text( size = 8) 
-  )
+    strip.text.x = element_text( size = 8)
+  ) 
 ```
 
 ### Colour vector, legends for top30 area plot
 ```{r message=FALSE, warning=FALSE}
 # DO HEATMAP AMPVIS FIRST to get prev.genus
+# Otherwise mostly not used
 ordervec <- (prev.genus %>% dplyr::filter(Total_abundance >= 6403))$Genus
 alph = 0.8
 #data
@@ -812,7 +749,7 @@ df <- microbiome::aggregate_taxa(ps.flt, "Genus") %>%
 
 ## 1 Firmicutes
 phylum <- c("Firmicutes")
-cols <- c( "#FFCCBC","#795548")
+cols <- c("#D35400", "#73C6B6")   #"#FFCCBC" "#795548"
 df2 <- df %>% 
   mutate(Abundance = Abundance *100) %>% 
    dplyr::filter(Abundance > 0) %>% 
@@ -1285,25 +1222,25 @@ rm(leg_cloac, leg_halo,leg_bacte,leg_firm,leg_chloro,leg_therm,leg_Syne,leg_pate
 ```{r message=FALSE, warning=FALSE}
 # DO HEATMAP AMPVIS FIRST
 # THEN DO COLOURS AND LEGEND
+firstdate <- 54  # selected period
+lastdate <- 117
+
 ordervec <- (prev.genus %>% dplyr::filter(Total_abundance >= 6403))$Genus
 alph = 0.8
-firstdate <- 58
-lastdate <- 103
-weeky <- c(-2.5)
-labely <- c(.05)
-segmenty <- c(0)
+weeky <- c(-12)
 
 ps.rel <- microbiome::aggregate_taxa(ps.flt, "Genus")
 ps.rel <- ps.rel %>% 
   microbiome::transform(transform = 'compositional')
 df <- phyloseq::psmelt(ps.rel) %>% 
   arrange(desc(Abundance))
-#df for ordering genera 
+
+# df for ordering genera 
 df0 <- df %>% 
   mutate(Abundance = Abundance *100) %>% 
    dplyr::filter(Abundance > 0) %>% 
-  dplyr::filter(SludgeType %in% c("Control")) %>% 
-   group_by(Kingdom, Genus) %>% 
+  dplyr::filter(SludgeType %in% c("Control", "Treatment")) %>% 
+   group_by(Kingdom, Family, Genus) %>% 
    summarise(value = median(Abundance)) %>% 
    dplyr::filter(Genus %in% c(ordervec)) %>% 
   arrange(desc(value))
@@ -1332,12 +1269,13 @@ df$Genus <- factor(df$Genus, levels = (df0$Genus %>% unique))
 p <- ggplot(df, aes(x=daysop, y=value, fill=Genus)) + 
     geom_area(alpha=alph , linewidth=.1, colour="white", position = "stack") +
   facet_wrap(vars(CSTR), ncol = 1) +
-  scale_x_continuous(
-               limits = c(firstdate, lastdate),
-               breaks =  c(58, 61, 63, 65, 68, 71,
+  
+   scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                     minor_breaks = c(54, 58, 61, 63, 65, 68, 71,
                                    75, 82,89,93,
-                                   96,103)
-               ) +
+                                   96,103, 110, 112, 117),
+               limits = c(firstdate, lastdate) )  +
+
   ylab("Relative Abundance (%)") +
   theme_light() +
   scale_fill_manual("Genus", values = col_genus)  +
@@ -1348,33 +1286,33 @@ p <- ggplot(df, aes(x=daysop, y=value, fill=Genus)) +
         legend.position = "none")   +
 
     annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-  # annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+  annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
    annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
-  # annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
    annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-  # annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
    annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-  # annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
    annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-  # annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
    annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
   
    annotate("text",x = 85, y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.65) +
     annotate("rect", ymin = 0, ymax = 100,  xmin = 82, xmax = 89,
              fill = "blue", alpha = .1) +
   
-  guides(fill=guide_legend(ncol=1)) +
-  ggtitle("Control")
+
+  guides(fill=guide_legend(ncol=1)) 
+  #ggtitle("Control")
  
 ```
+
 
 #### Treatment
 ```{r message=FALSE, warning=FALSE}
 # DO HEATMAP AMPVIS FIRST
 ordervec <- (prev.genus %>% dplyr::filter(Total_abundance >= 6403))$Genus
-alph = 0.8
-weeky <- c(-2.5)
-labely <- c(.05)
+labely <- c(-3.76)
 segmenty <- c(0)
 
 ps.rel <- microbiome::aggregate_taxa(ps.flt, "Genus")
@@ -1387,11 +1325,12 @@ df <- phyloseq::psmelt(ps.rel) %>% arrange(desc(Abundance))
 df0 <- df %>% 
   mutate(Abundance = Abundance *100) %>% 
    dplyr::filter(Abundance > 0) %>% 
-  dplyr::filter(SludgeType %in% c("Treatment")) %>% 
-   group_by(Kingdom, Genus) %>% 
+  dplyr::filter(SludgeType %in% c("Control","Treatment")) %>% 
+   group_by(Kingdom, Family, Genus) %>% 
    summarise(value = median(Abundance)) %>% 
    dplyr::filter(Genus %in% c(ordervec)) %>% 
   arrange(desc(value))
+df0 <- df0 %>% unite("Genus2", Family:Genus, remove= FALSE, sep = "; ") # Combined taxa names
 
 # df for plotting
 df <- phyloseq::psmelt(ps.rel) %>% 
@@ -1436,24 +1375,199 @@ df$Genus <- factor(df$Genus, levels = (df0$Genus %>% unique))
 p2 <- ggplot(df, aes(x=daysop, y=value, fill=Genus)) + 
     geom_area(alpha=alph , linewidth=.1, colour="white", position = "stack") +
   facet_wrap(vars(CSTR), ncol = 1) +
-   scale_x_continuous(
-               limits = c(firstdate, lastdate),
-               breaks =  c(58, 61, 63, 65, 68, 71,
+  
+  scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                     minor_breaks = c(54, 58, 61, 63, 65, 68, 71,
                                    75, 82,89,93,
-                                   96,103)
-               ) +
+                                   96,103, 110, 112, 117),
+               limits = c(firstdate, lastdate) )  +
+
   ylab("Relative Abundance (%)") +
   theme_light() +
-  scale_fill_manual("Genus", values = col_genus)  +
+  
+  scale_fill_manual("Genus", values = col_genus, label = df0$Genus2)  + # use long label
+  
   theme(
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.text.x = element_text(angle = 90,  vjust=0.5, hjust = 0.5, size = 8.5),
         axis.text.y = element_blank(),
         legend.position = "right",
+        #legend.position = "none",
         legend.title = element_blank()
         )   +
     annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+  annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  
+   annotate("text",x = 85, y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.65) +
+    annotate("rect", ymin = 0, ymax = 100,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+  
+    annotate("text",x = 64, y = 50, label = "Glycerol added", size = 4, angle = 90, alpha = 0.65) +
+    annotate("rect",ymin =0, ymax = 100, xmin = 62, xmax = 67, fill = "blue", alpha = .1) +
+  annotate("text",x = 94.25, y = 50, label = "Foam observed", size = 4, angle = 90, alpha = 0.65) +
+    annotate("rect",ymin =0, ymax = 100, xmin = 93, xmax = 96, fill = "blue", alpha = .1) +
+  
+  
+#   annotate("text",x = 65, y = labely, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 62, xend = 67, alpha = 0.5,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+   annotate("text",x = 74, y = labely, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82, , alpha = 0.5,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+#  annotate("text",x = 85.7, y = labely, label = " Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90, , alpha = 0.5,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+#  annotate("text",x = 94, y = labely, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 90, xend = 98, , alpha = 0.5,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+  guides(fill=guide_legend(ncol=1, override.aes = list(size = 4.5), keywidth = 0.5,
+                            keyheight = 0.5)) 
+ # ggtitle("Treatment")
+
+# get legend
+leg <- as_ggplot(get_legend(p2))
+```
+
+
+### Combine
+```{r fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
+
+g1 <- ggarrange(sor1, ggplot()+theme_void(), sor2,ggplot()+theme_void(), 
+            p,  ggplot()+theme_void(), p2, leg,
+                 ncol = 4, widths = c(0.33, -0.01, 0.33,0.33),
+                 nrow = 2, heights = c(0.2, 0.8), legend = "none")
+
+g2 <- ggarrange(ggplot() + theme_void(), h2, widths = c(0.05, 0.95))
+
+g3 <- ggarrange(g1, g2, nrow = 2, labels = "AUTO", heights = c(0.68,0.42))
+ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.png", height=29, width=24, units='cm', dpi=300) #png
+ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.pdf", height=29, width=24, units='cm', dpi=300) #pdf
+
+```
+
+
+## Figure 5
+### Methanogens Control - incl CH4 line 
+```{r message=FALSE, warning=FALSE}
+firstdate <- 33
+lastdate <- 166
+
+weeky <- c(-0.5)
+labely <- c(.05)
+segmenty <- c(0)
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
+
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
+ordervec <- (prev.genus %>% dplyr::filter(Rel_abundance > 0.075))$Genus
+
+ps.rel <- microbiome::aggregate_taxa(ps.flt, "Genus")
+ps.rel <- phyloseq::subset_taxa(ps.rel , Genus %in% ordervec)
+
+ps.rel <- ps.rel %>% 
+  microbiome::transform(transform = 'compositional')
+df <- phyloseq::psmelt(ps.rel)
+
+## combine CH4 data with abundance data 
+df_CH4 <- masterdata %>% filter(CH4_pct > 0) %>% 
+  dplyr::select(AD, daysop, CH4_pct, CH4_L_kgVS)
+temp <- df_CH4 %>% 
+  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
+temp2 <- df %>% 
+  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
+temp3 <- temp %>% full_join(temp2, by = NULL) 
+
+data <- temp3 %>% 
+  group_by(daysop, Kingdom, Genus, AD, SludgeType) %>%          # for Archaea abundances 
+  summarise_at(vars(Abundance, CH4_pct), mean, na.rm = TRUE) 
+
+data$CSTR <- str_replace_all(data$AD, c("AD1"="C1", 
+                                       "AD2"="T1", 
+                                          "AD3"="C2", 
+                                            "AD4"="C3", 
+                                              "AD5"="T2", 
+                                               "AD6"="T3",
+                                                "AD_full" = "Full-scale") )
+
+data <- data %>% mutate(Abundance = Abundance * 100)
+data2 <- data  %>%  ungroup() %>%                             # For CH4 concentrations
+    dplyr::select(daysop, AD, SludgeType, CH4_pct) %>% 
+  dplyr::filter(CH4_pct > 0 )
+
+data2$CSTR <- str_replace_all(data2$AD, c("AD1"="C1", 
+                                       "AD2"="T1", 
+                                          "AD3"="C2", 
+                                            "AD4"="C3", 
+                                              "AD5"="T2", 
+                                               "AD6"="T3",
+                                                "AD_full" = "Full-scale") )
+p1 <- ggplot( ) + 
+      geom_area( data = 
+                   (data %>% dplyr::filter(Kingdom %in% c("Archaea")) %>% 
+                     #dplyr::filter(Abundance > 0) %>% 
+                 #     dplyr::filter(AD %in% c("AD1")) %>%               # Filter ADs
+            dplyr::filter(SludgeType %in% c("Control"))),   # Filter Treatments/SludgeType
+                                  
+        aes(x=daysop,  y=Abundance, fill=Genus), alpha=0.6 ,
+        linewidth=.1, colour="white", 
+        position = "stack") +
+
+  geom_line(data =  (data2  %>% 
+  dplyr::filter(SludgeType %in% c("Control")) %>%    # Filter Treatments/SludgeType
+  # dplyr::filter(AD %in% c("AD1")) %>%                           # Filter ADs
+    unique() ) ,               
+      aes(y=CH4_pct / 4.67, x = daysop, color = SludgeType),
+    linetype = 5) + # Divide by x to get the same range than the temperature
+    # add second y axis
+    scale_y_continuous(
+    # Features of the first axis
+    name = "Relative abundance (%)",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~.*4.55 , name="CH4 (%)")
+  ) +
+
+  scale_color_manual("CH4",values = "black") +
+  guides(colour = "none") +
+  facet_wrap(vars(CSTR), ncol = 1 ) +
+  theme_light() +
+ # scale_color_manual("Treatment", values = cols)  +
+  theme(
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90,  hjust=1, vjust = 0.5),
+        legend.position = "top")   +
+
+     scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
+  
+  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
   # annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
    annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
   # annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
@@ -1464,31 +1578,200 @@ p2 <- ggplot(df, aes(x=daysop, y=value, fill=Genus)) +
    annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
   # annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
    annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  #   annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+ #  annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+ #  annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
   
-   annotate("text",x = 85, y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.65) +
-    annotate("rect", ymin = 0, ymax = 100,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
-  
-    annotate("text",x = 64, y = 50, label = "Glycerol added", size = 4, angle = 90, alpha = 0.65) +
-    annotate("rect",ymin =0, ymax = 100, xmin = 62, xmax = 67, fill = "blue", alpha = .1) +
-  annotate("text",x = 94, y = 50, label = "Foam observed", size = 4, angle = 90, alpha = 0.65) +
-    annotate("rect",ymin =0, ymax = 100, xmin = 93, xmax = 96, fill = "blue", alpha = .1) +
-  
-  guides(fill=guide_legend(ncol=1, override.aes = list(size = 4.5), keywidth = 0.5,
-                            keyheight = 0.5)) +
-  ggtitle("Treatment")
+   annotate("text",x = 85, y = 7, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
+    annotate("rect", ymin = 0, ymax = 15, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+  ggtitle("Control")
 
 ```
 
+### Methanogens Treatment - incl CH4 line 
+```{r message=FALSE, warning=FALSE}
+weeky <- c(-0.5)
+labely <- c(.05)
+segmenty <- c(0)
+
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
+
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
+
+ordervec <- (prev.genus %>% dplyr::filter(Rel_abundance > 0.075))$Genus
+
+ps.rel <- microbiome::aggregate_taxa(ps.flt, "Genus")
+ps.rel <- phyloseq::subset_taxa(ps.rel , Genus %in% ordervec)
+
+ps.rel <- ps.rel %>% 
+  microbiome::transform(transform = 'compositional')
+df <- phyloseq::psmelt(ps.rel)
+
+## combine CH4 data with abundance data 
+df_CH4 <- masterdata %>% filter(CH4_pct > 0) %>% 
+  dplyr::select(week, AD, daysop, CH4_pct, CH4_L_kgVS)
+temp <- df_CH4 %>% 
+  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
+temp2 <- df %>% 
+  unite("DateAD", all_of(c("daysop","AD")), remove = FALSE)
+temp3 <- temp %>% 
+  full_join(temp2, by = NULL) 
+
+data <- temp3 %>%                                             # For archaea abundances 
+  group_by(week, daysop, Kingdom, Genus, AD, SludgeType) %>% 
+  summarise_at(vars(Abundance, CH4_pct), mean, na.rm = FALSE) 
+#data$CSTR <- str_replace_all(data$AD, c("AD1"="CSTR1", 
+#                                       "AD2"="CSTR2", 
+#                                          "AD3"="CSTR3", 
+#                                            "AD4"="CSTR4", 
+#                                              "AD5"="CSTR5", 
+#                                               "AD6"="CSTR6",
+#                                                "AD_full" = "Full-scale") )  
+
+data$CSTR <- str_replace_all(data$AD, c("AD1"="C1", 
+                                       "AD2"="T1", 
+                                          "AD3"="C2", 
+                                            "AD4"="C3", 
+                                              "AD5"="T2", 
+                                               "AD6"="T3",
+                                                "AD_full" = "Full-scale") )
+
+data <- data %>% mutate(Abundance = Abundance * 100)
+data2 <- data %>%  ungroup() %>%                             # For CH4 concentrations
+    dplyr::select(daysop, AD, SludgeType, CH4_pct) %>% 
+  dplyr::filter(CH4_pct > 0 )
+#data2$CSTR <- str_replace_all(data2$AD, c("AD1"="CSTR1", 
+#                                       "AD2"="CSTR2", 
+#                                          "AD3"="CSTR3", 
+#                                            "AD4"="CSTR4", 
+#                                              "AD5"="CSTR5", 
+#                                               "AD6"="CSTR6",
+#                                                "AD_full" = "Full-scale") ) 
+data2$CSTR <- str_replace_all(data2$AD, c("AD1"="C1", 
+                                       "AD2"="T1", 
+                                          "AD3"="C2", 
+                                            "AD4"="C3", 
+                                              "AD5"="T2", 
+                                               "AD6"="T3",
+                                                "AD_full" = "Full-scale") )
+
+p2 <- ggplot( ) + 
+      geom_area( data = 
+                   (data %>% dplyr::filter(Kingdom %in% c("Archaea")) %>% 
+                     #dplyr::filter(Abundance > 0) %>% 
+                    # dplyr::filter(AD %in% c("AD5")) %>%               # Filter ADs
+            dplyr::filter(SludgeType %in% c("Treatment"))),   # Filter Treatments/SludgeType
+                                  
+        aes(x=daysop,  y=Abundance, fill=Genus), alpha=0.6 ,
+        linewidth=.1, colour="white", 
+        position = "stack") +
+  geom_line(data =  (data2  %>% 
+  dplyr::filter(SludgeType %in% c("Treatment")) %>%    # Filter Treatments/SludgeType
+  # dplyr::filter(AD %in% c("AD1")) %>%                           # Filter ADs
+    unique() ) ,               
+      aes(y=CH4_pct / 4.67, x = daysop, color = SludgeType),
+    linetype = 5) + # Divide by x to get the same range than the temperature
+    # add second y axis
+    scale_y_continuous(
+    # Features of the first axis
+    name = "Relative abundance (%)",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~.*4.55, name="CH4 (%)")
+  ) +
+   scale_color_manual("CH4",values = "black") +
+  guides(colour = "none") +
+  facet_wrap(vars(CSTR), ncol = 1) +
+
+#  ylab("Relative Abundance") +
+  theme_light() +
+ # scale_color_manual("Treatment", values = cols)  +
+  theme(axis.title.x = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.x = element_text(angle = 90,  hjust=1, vjust = 0.5),
+        legend.position = "top")   +
+  
+       scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
+  
+  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   #annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   #annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   #annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   #annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   #annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+ #    annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+#   annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+#   annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
+  
+   annotate("text",x = 85, y = 7, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
+    annotate("rect", ymin = 0, ymax = 15, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+  
+  annotate("text",x = 64, y = 7, label = "Glycerol added", size = 3, angle = 90, alpha = 0.5) +
+    annotate("rect",ymin =0, ymax = 15, xmin = 62, xmax = 67, fill = "blue", alpha = .1) +
+  
+    annotate("text",x = 94, y = 7, label = "Foam observed", size = 3, angle = 90, alpha = 0.5) +
+    annotate("rect",ymin =0, ymax = 15, xmin = 93, xmax = 96, fill = "blue", alpha = .1) +
+  ggtitle("Treatment")
+```
+
 ### Combine
-```{r fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
-g1 <- ggarrange(p,  ggplot()+theme_void(), 
-                p2, ggplot()+theme_void(), 
-                leg_areaplot, ggplot()+theme_void(), 
-                legend = "none", ncol = 6, widths = c(0.42, -0.01, 0.38, 0.065,0.1,0.2))
-g2 <- ggarrange(ggplot() + theme_void(), h2, widths = c(0.05, 0.95))
-g3 <- ggarrange(g1, g2, nrow = 2, labels = "AUTO", heights = c(0.68,0.42))
-g3
-ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.png", height=29, width=24, units='cm', dpi=300)
+```{r fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+g1 <- ggarrange(p1, p2, common.legend = TRUE, legend = "top", ncol = 2, heights = c(0.85,1))
+g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
+g1
+ggsave(plot = g1, "./Figures/areaplot_archaea_both_inclCH4_daysop.png", height=16, width=22, units='cm', dpi=450)
+```
+
+### Methanogens decline calcs in week 11, 12
+```{r}
+library(DT)
+datatable( data %>%    #dplyr::filter(Kingdom %in% c("Archaea")) %>% 
+            #dplyr::filter(Abundance > 0) %>% 
+            dplyr::filter(week %in% c(11, 12)) %>%              
+            dplyr::filter(SludgeType %in% c("Control","Treatment")) %>% 
+  group_by(Kingdom, SludgeType, AD, daysop) %>% 
+  summarise(Abundance = sum(Abundance)) %>%          # sum per day/day
+  group_by(Kingdom, SludgeType,  daysop) %>%     
+  summarise(Abundance = mean(Abundance)) %>%    # mean per day 
+  group_by(Kingdom, SludgeType) %>%
+  rstatix::get_summary_stats(Abundance, type = "common")) # mean per group
+
+
+datatable( data %>%    #dplyr::filter(Kingdom %in% c("Archaea")) %>% 
+            dplyr::filter(CH4_pct > 0) %>% 
+            dplyr::filter(week %in% c(11, 12)) %>%              
+            dplyr::filter(SludgeType %in% c("Control","Treatment")) %>% 
+  group_by(CH4_pct, SludgeType,  daysop) %>%
+  summarise(CH4_pct = mean(CH4_pct)) %>%                # mean per day 
+  group_by( SludgeType) %>%
+  rstatix::get_summary_stats(CH4_pct, type = "common"))  # mean per group
 ```
 
 ## Figure 6
@@ -1543,8 +1826,6 @@ p<- ggscatter(data = data,
           alpha = 0.5) +
   geom_smooth(method = "lm", color = "black")+
   stat_cor( aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),label.x = 0) +
-  #ggtitle("Centred-log ratio correlations of OTU abundances",
-  #        subtitle = "16S reads") +
   xlab("Treated digestate ASV abundances") +
   ylab("Foam ASV abundance")
 
@@ -1561,6 +1842,7 @@ psobject <- subset_samples(psobject, sample_data(psobject)$Date %in%
 psobject <- subset_samples(psobject, sample_data(psobject)$DNATubeID %notin% 
                               c("#150", "#153","#154"))
 psobject <- prune_taxa(taxa_sums(psobject) > 0.00, psobject)
+
 #psobject <-  transform_sample_counts(psobject, function(x) x / sum(x) )
 #psobject <- microbiome::transform(psobject, transform = 'compositional')
 #psobject <- prune_taxa(taxa_sums(psobject) > 0.00, psobject)
@@ -1590,20 +1872,28 @@ data <- psmelt(psobject)
 # 93% shared abundances with 40 ASVs
 data$Abundance <- data$Abundance *100
 data <-  data %>%  dplyr::select(OTU,Kingdom, Phylum, Genus, Abundance, Sample) 
-plodf <- data %>%  group_by(Phylum) %>% 
-  summarise(Abundance = sum(Abundance)) %>% filter(!is.na(Phylum))
-sum(plodf$Abundance)
+plodf <- data %>%  group_by(Kingdom, Phylum) %>% 
+  summarise(Abundance = sum(Abundance)) %>% filter(!is.na(Phylum)) %>%
+  ungroup() %>% 
+  arrange(Abundance) %>% 
+  mutate(Phylum=factor(Phylum, levels=Phylum))# update the factor levels
+
+
 # Order data by value in decreasing order
 lp <- plodf  %>%
-  arrange(Abundance) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-  mutate(Phylum=factor(Phylum, levels=Phylum)) %>%   # This trick update the factor levels
-  ggplot( aes(x=Phylum, y=Abundance)) +
-    geom_segment( aes(xend=Phylum, yend=0)) +
-    geom_point( size=2, color="orange") +
+  ggplot(aes(x=Phylum, y=Abundance)) +
+    geom_segment( aes(xend=Phylum, yend=0
+                      )) +
+    geom_point( size=3, 
+                aes(color=Kingdom, 
+                alpha = .5)) +
     coord_flip() +
     theme_bw() +
     xlab("") +
-    ylab("Shared ASV abundances")
+    ylab("ASV abundances (%)") +
+  theme(
+    legend.position = "none"
+  )
 
  # create a lolliplot chart of shared genera - top 20
 psobject <- ps.flt
@@ -1638,23 +1928,139 @@ sum(taxa_sums(psobject)) # 0.9262802, 0.9451965 with 22/5 included
 # check <- data.frame(otu_table(psobject))
 data <- psmelt(psobject) 
 # 93% shared abundances with 40 ASVs
+
 data$Abundance <- data$Abundance *100
 data <-  data %>%  dplyr::select(OTU,Kingdom, Phylum, Genus, Abundance, Sample) 
-plodf <- data %>%  group_by(Genus) %>% 
-  summarise(Abundance = sum(Abundance)) %>% filter(!is.na(Genus))
+plodf <- data %>%  group_by(Kingdom, Genus) %>% 
+  summarise(Abundance = sum(Abundance)) %>% filter(!is.na(Genus)) %>% 
+   ungroup() %>% 
+   dplyr::filter(Abundance > 0.4) %>% 
+   arrange(Abundance) %>% 
+   mutate(Genus=factor(Genus, levels=Genus)) # update the factor levels
 sum(plodf$Abundance)
 # Order data by value in decreasing order
 lp.g <- plodf  %>%
-  arrange(Abundance) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-  dplyr::filter(Abundance > 0.4) %>% 
-  mutate(Genus=factor(Genus, levels=Genus)) %>%   # This trick update the factor levels
+  #arrange(Abundance) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+ # dplyr::filter(Abundance > 0.4) %>% 
+  #mutate(Genus=factor(Genus, levels=Genus)) %>%   # This trick update the factor levels
   ggplot( aes(x=Genus, y=Abundance)) +
     geom_segment( aes(xend=Genus, yend=0)) +
-    geom_point( size=2, color="orange") +
+    geom_point( size=3, aes(color=Kingdom), alpha = 0.5) +
     coord_flip() +
     theme_bw() +
     xlab("") +
-    ylab("Shared ASV abundances")
+    ylab("ASV abundances (%)") +
+  theme(
+    legend.position = "none"
+  )
+
+```
+
+### Lollipop charts
+```{r message=FALSE, warning=FALSE}
+ # create a lolliplot chart of shared phyla
+psobject <- ps.flt
+psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
+                              c("Treatment","Foam"))
+psobject <- subset_samples(psobject, sample_data(psobject)$Date %in% 
+                              c("2023-05-22", "2023-05-29", "2023-06-02","2023-06-05"))
+psobject <- subset_samples(psobject, sample_data(psobject)$DNATubeID %notin% 
+                              c("#150", "#153","#154"))
+psobject <- prune_taxa(taxa_sums(psobject) > 0.00, psobject)
+psobject <- microbiome::transform(psobject, transform = 'compositional')
+
+# Verify the mapping
+if (!all(colnames(otu_table(psobject)) %in% rownames(sample_data(psobject)))) {
+  stop("Sample names do not match between OTU table and sample data.")
+}
+
+# Extract sample data and OTU table
+sample_data_df <- as.data.frame(sample_data(psobject))
+otu_table_mat <- as(otu_table(psobject), "matrix")
+
+# Identify shared OTUs across all groups in a given factor
+shared_otus_indices <- apply(otu_table_mat, 1, function(otu_counts) {
+  # Check if the OTU is present in each group
+  present_in_all_groups <- sapply(unique(sample_data_df$SludgeType), function(group) {
+    # Subset the samples for this group
+    samples_in_group <- which(sample_data_df$SludgeType == group)
+    # Check if there's at least one non-zero count in the group
+    any(otu_counts[samples_in_group] > 0)
+  })
+  # Return TRUE if OTU is present in all groups, FALSE otherwise
+  all(present_in_all_groups)
+})
+
+# Subset the phyloseq object based on shared OTUs
+shared_otus <- rownames(otu_table_mat)[shared_otus_indices]
+ps_shared <- prune_taxa(shared_otus, psobject)
+
+data <- psmelt(psobject) 
+data$Abundance <- data$Abundance *10
+
+data <-  data %>%  dplyr::select(OTU,SludgeType, Kingdom, Phylum, Genus, Abundance, Sample)
+
+plotdf <- data %>%  group_by(SludgeType,Kingdom, Phylum) %>% 
+  summarise(Abundance = sum(Abundance)) %>% filter(!is.na(Phylum)) %>%
+  ungroup() %>% 
+  arrange(Abundance) %>% 
+  mutate(Phylum=factor(Phylum, levels=Phylum %>% unique()))  %>% 
+  pivot_wider(names_from = "SludgeType", values_from = "Abundance") # update the factor levels
+
+# Reorder data using average? Learn more about reordering in chart #267
+plotdf  <- plotdf  %>% 
+  rowwise() %>% 
+  mutate( mymean = mean(c(Foam,Treatment) )) %>% 
+  arrange(mymean) %>% 
+  dplyr::filter(mymean > 2.619051e-03) %>% 
+  mutate(Phylum=factor(Phylum, Phylum)) %>% 
+  mutate(color = ifelse(Kingdom == "Bacteria", "#00BFC4", "#F8766D"))
+
+# Plot
+lp <- ggplot(plotdf) +
+  geom_segment( aes(x=Phylum, xend=Phylum, y=Foam, yend=Treatment), color="grey") +
+  geom_point( aes(x=Phylum, y=Foam), color="#C4A484", size=3 , alpha = 0.5) +
+  geom_point( aes(x=Phylum, y=Treatment), color="#985C64", size=3, alpha = 0.5) +
+  coord_flip()+
+  theme(
+    legend.position = "none",
+    axis.text.y = element_text(colour = plotdf$color)
+  ) +
+  xlab("") +
+  ylab("ASV abundances (%)")
+
+
+### Now on genus level
+plotdf <- data %>%  group_by(SludgeType,Kingdom, Genus) %>% 
+  summarise(Abundance = sum(Abundance)) %>% filter(!is.na(Genus)) %>%
+  ungroup() %>% 
+
+  arrange(Abundance) %>% 
+  mutate(Genus=factor(Genus, levels=Genus %>% unique()))  %>% 
+  pivot_wider(names_from = "SludgeType", values_from = "Abundance") # update the factor levels
+
+# Reorder data using average? Learn more about reordering in chart #267
+plotdf  <- plotdf  %>% 
+  rowwise() %>% 
+  mutate( mymean = mean(c(Foam,Treatment) )) %>% 
+  arrange(mymean) %>% 
+  mutate(Genus=factor(Genus, Genus)) %>% 
+  dplyr::filter(mymean > 0.4) %>% 
+  mutate(color = ifelse(Kingdom == "Bacteria", "#00BFC4", "#F8766D"))
+
+# Plot
+lp.g <- ggplot(plotdf) +
+  geom_segment( aes(x=Genus, xend=Genus, y=Foam, yend=Treatment), color="grey") +
+  geom_point( aes(x=Genus, y=Foam), color="#C4A484", size=3 , alpha = 0.5) +
+  geom_point( aes(x=Genus, y=Treatment), color="#985C64", size=3, alpha = 0.5) +
+  coord_flip()+
+  theme(
+    legend.position = "none",
+    axis.text.y = element_text(colour = plotdf$color)
+  ) +
+  xlab("") +
+  ylab("ASV abundances (%)")
+
 ```
 
 ### PERMANOVA - Control vs Treatment
@@ -1697,8 +2103,10 @@ pn
 
 ### PERMANOVA - Treatment vs Foam
 ```{r message=FALSE, warning=FALSE}
+
 psobject <-  ps.flt
-sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Date_ST", all_of(c("Date", "SludgeType")),remove = FALSE )
+sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Day_ST", all_of(c("daysop", "SludgeType")),remove = FALSE )
+sample_data(psobject)$Day_ST <- factor(sample_data(psobject)$Day_ST)
 sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
 psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
                               c("Treatment", "Foam"))
@@ -1708,7 +2116,11 @@ psobject <- subset_samples(psobject, sample_data(psobject)$Date %in%
 summary(sample_data(psobject)$SludgeType)
 # Control Treatment 
 #       6        6
-       
+
+summary(sample_data(psobject)$Day_ST)
+#  93_Foam 93_Treatment      96_Foam 96_Treatment 
+#    3            3            3            3
+
 summary(sample_sums(psobject))
 # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 #  36688   43622   48714   50522   56688   66294 
@@ -1731,12 +2143,51 @@ df <- data.frame(sample_data(psobject))
 pn <- vegan::adonis2(distance(psobject, method = "bray") ~ SludgeType, 
               data = df)
 pn
+
+## Option:  day 82 sludge vs day 93 foam (11 day interval)
+psobject <-  ps.flt
+sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Day_ST", all_of(c("daysop", "SludgeType")),remove = FALSE )
+sample_data(psobject)$Day_ST <- factor(sample_data(psobject)$Day_ST)
+#sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
+psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in% 
+                              c("Treatment", "Foam"))
+#psobject <- subset_samples(psobject, sample_data(psobject)$daysop %in% 
+ #                             c(82, 93))
+psobject <- subset_samples(psobject, sample_data(psobject)$Day_ST %in% 
+                              c("82_Treatment", "93_Foam"))
+psobject <- prune_taxa(taxa_sums(psobject) > 0.0, psobject)
+
+summary(sample_data(psobject)$SludgeType)
+# Control Treatment 
+#       3        3
+
+summary(sample_data(psobject)$Day_ST)
+#82_Treatment      93_Foam 
+#           3            3 
+
+set.seed(1234)  
+psobject <- phyloseq::rarefy_even_depth(psobject , 
+    sample.size = min(sample_sums(psobject)),  
+    rngseed = TRUE, 
+    replace = FALSE, 
+   trimOTUs = TRUE)
+
+# otu_table()   OTU Table:         [ 1574 taxa and 6 samples ]
+# sample_data() Sample Data:       [ 6 samples by 62 sample variables ]
+# tax_table()   Taxonomy Table:    [ 1574 taxa by 7 taxonomic ranks ]
+# phy_tree()    Phylogenetic Tree: [ 1574 tips and 1547 internal nodes ]
+
+# Permanova
+df <- data.frame(sample_data(psobject))
+pn2 <- vegan::adonis2(distance(psobject, method = "bray") ~ SludgeType, 
+              data = df)
 ```
 
 
 ### PCA 
 combined with scatter plot in taxa.RMd
 ```{r PCA,  message=FALSE, warning=FALSE, echo=T, include=TRUE,fig.asp=0.40, fig.width=10}
+
 psobject <-  ps.flt
 sample_data(psobject) <- tidyr::unite(data.frame(sample_data(psobject)), "Date_ST", all_of(c("Date", "SludgeType")),remove = FALSE )
 sample_data(psobject)$Date  <- as.character(sample_data(psobject)$Date)
@@ -1745,31 +2196,109 @@ psobject <- subset_samples(psobject, sample_data(psobject)$SludgeType %in%
 psobject <- subset_samples(psobject, sample_data(psobject)$Date %in% 
                               c("2023-05-11","2023-05-22", "2023-05-29", "2023-06-02","2023-06-05"))
 
- 
 sample_data(psobject)$daysop <- as.factor(sample_data(psobject)$daysop)
 psobject <- prune_taxa(taxa_sums(psobject) > 0.0, psobject)
 
 # normalisation and transform using the microbiome package
 # I chose a centred log-ratio transform and a principal component analysis in a euclidean space.
-psobject <- microbiome::transform(psobject, "clr")
+# PCA plot
+psobject <- microbiome::transform(psobject, "clr") 
+# Perform ordination
+  ordination <- phyloseq::ordinate(psobject , "RDA") 
+ord <- plot_ordination(psobject, ordination, type = "samples", justDF = TRUE)
 
-pca1 <- pca_helper(psobject, color = "SludgeType", shape = "daysop", title =  NULL) +
-  geom_point(size = 3, alpha = 0.5) +
-  geom_text_repel(label = sample_data(psobject)$CSTR, nudge_x = 0, nudge_y = 0) +
-  labs(shape = "Day of\noperation", color = "Sludge type") +
+pca1 <- ggplot(ord, aes(x = PC1, y = PC2)) +
+      geom_point(aes(
+                color = SludgeType,
+                 shape = daysop, 
+                  size = daysop), 
+                  alpha = 0.6
+                 ) +
+  
+   scale_color_manual(values = cols, labels = c("Control CSTR", "Treatment CSTR", "Foam","PS/TWAS")) +
+    labs(shape = "Day of\noperation") +
+  guides( shape = guide_legend( override.aes = list(size = c(1.5,2,3,4,5)),
+           keywidth = 0.5, keyheight = 0.8),
+          colour = guide_legend("Sludge type", override.aes = list(size = 4), 
+                               keywidth = 0.5, keyheight = 0.8),
+            size = FALSE )   +
+
+
   ylim(-9,9) + xlim(-8,6) +
   theme(legend.spacing.y = unit(-0.2, 'cm')) + 
-  annotate(geom = 'text', label = expression("PERMANOVA 1: df=1, F=10.45, R"^2*"=0.32, "*italic(p)~"=0.001, n=12 per group"), x = -8, y = 8.5,
-           hjust = 0, vjust = 0, size = 2.4) + 
-  annotate(geom = 'text', label = expression("PERMANOVA 2: df=1, F=3.67, R"^2*"=0.27, "*italic(p)~"=0.009, n=6 per group"), x = -8, y = 7.5,      hjust = 0, vjust = 0, size = 2.4)
-
+  
+  annotate(geom = 'text', label = expression("PERMANOVA 1: df=1, F=10.45, R"^2*"=0.32, "*italic(p)~"=0.001, n=12"), x = -8, y = 8.5,
+           hjust = 0, vjust = 0, size = 2) + 
+  #annotate(geom = 'text', label = expression("PERMANOVA 2: df=1, F=3.67, R"^2*"=0.27, "*italic(p)~"=0.009, n=6 per group"), x = -8, y = 7.5,
+  #         hjust = 0, vjust = 0, size = 2.4) +
+   annotate(geom = 'text', label = expression("PERMANOVA 2: df=1, F=2.55, R"^2*"=0.39, "*italic(p)~">0.05, n=3"), x = -8, y = 7.5, 
+            hjust = 0, vjust = 0, size = 2) + 
+  annotate(geom = 'text', label = paste("PCA, Aitchison distances"),
+             x = -Inf, y = -Inf, hjust = -0.05, vjust = -1, size = 3)
 ```
 
 ### Combine
 ```{r fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
-g1 <- ggarrange(ggarrange(p, pca1),  ggarrange(lp, lp.g), ncol = 1, nrow = 2, heights = c(0.45,0.55), labels = "AUTO")
-ggsave(plot = g1,  "./Figures/scatterpluslollie_pca.png", height=18, width=24, units='cm', dpi=300)
-g1
+
+g1 <- ggarrange(ggarrange(p, pca1, widths = c(0.45, 0.55)),  ggarrange(lp, lp.g),
+                ncol = 1, nrow = 2, 
+                heights = c(0.4,0.6), labels = "AUTO")
+g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
+ggsave(plot = g1,  "./Figures/scatterpluslollie_pca.png", height=18, width=20, units='cm', dpi=300)
+
 ```
 
+## PCA ALL (not included) 
+```{r PCAoA,  message=FALSE, warning=FALSE, echo=T, include=TRUE,fig.asp=0.40, fig.width=10}
+
+psobject <-  ps.flt
+#psobject <-  subset_samples(psobject, sample_data(psobject)$SludgeType %in% c("Control", "Treatment", "Foam","Full-scale"))
+psobject  <-  prune_taxa(taxa_sums(psobject  ) > 0, psobject ) 
+#sort(sample_sums(psobject))
+set.seed(1234)  
+psobject <- phyloseq::rarefy_even_depth(psobject , 
+    sample.size = 30563,  # 30563  - remove two samples
+    rngseed = TRUE, 
+    replace = FALSE, 
+   trimOTUs = TRUE)
+
+#?phyloseq::ordinate
+#?plot_ordination
+ordination <- phyloseq::ordinate(psobject , "RDA") # using the centred-log transformed abundances
+ord <- plot_ordination(psobject, ordination, type = "samples", justDF = TRUE)
+ord <- ord %>% 
+  mutate(Period2 = ifelse(SludgeType %in% c("Foam") , "Foam", NA))
+
+ggplot(ord, aes(x = PC1, y = PC2)) +
+      geom_point(aes(
+                color = SludgeType, size = DNA_mgLSludge), 
+                 alpha = 0.6
+                 ) +
+  geom_text_repel(aes(label = daysop),show.legend = FALSE) +
+   scale_color_manual(values = cols, labels = c("Control CSTR", "Treatment CSTR", 
+                                                "Foam","Full-scale","PS/TWAS")) +
+  annotate(geom = 'text', label = paste("PCA, Aitchison distances"),
+             x = -Inf, y = -Inf, hjust = -0.05, vjust = -1, size = 3) +
+  
+  guides(colour = guide_legend("Sludge type", override.aes = list(size = 5), 
+                               keywidth = 0.5, 
+                                keyheight = 0.5),
+          size = guide_legend("DNA (mg/L)"))
+
+ggsave("./Figures/pca.png", height=18, width=24, units='cm', dpi=300)
+
+# Option 2 - jaccard
+#ordination <- phyloseq::ordinate(psobject , "PCoA", distance = "jaccard") # using the jaccard distance
+#ord <- plot_ordination(psobject, ordination, type = "samples", justDF = TRUE)
+#ggplot(ord, aes(x = Axis.1, y = Axis.2)) +
+#      geom_point(aes(
+#                color = SludgeType, size = daysop), 
+##                 alpha = 0.6
+#                 ) +
+#   scale_color_manual(values = cols, labels = c("Control CSTR", "Treatment CSTR", 
+#                                                "Foam","Full-scale","PS/TWAS")) +
+# annotate(geom = 'text', label = paste("PCA, Aitchison distances"),
+#             x = -Inf, y = -Inf, hjust = -0.05, vjust = -1, size = 3)  + 
+#  geom_text_repel(aes(label = AD, size = daysop),show.legend = FALSE)
+```
 

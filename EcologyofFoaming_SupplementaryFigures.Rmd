@@ -5,7 +5,7 @@ output:
   html_document:
     df_print: paged
 editor_options:
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ## Load packages and data
@@ -18,18 +18,20 @@ library(ggpubr)
 library(lubridate)
 library(ggrepel)
 library(phyloseq)
+library(grid)
+library(ampvis2)
 `%notin%` = Negate(`%in%`)
 # Prevalence table function
 # get overview of abundances, mean prevalence is the mean 'appearance' of ASVs of the taxon across all samples
 prevalencedf <- dget("./custom-functions/myprevalencetablefunction.R")
-pca_helper <- dget("./custom-functions/pca_helper.R")
+#pca_helper <- dget("./custom-functions/pca_helper.R")
 startoperation <- ymd("2023-03-01")
-cols <- c("#4D98AC", "#985C64", "#ff0000", "purple", "#C4A484")
+cols <- c("#4D98AC", "#985C64", "#ff0000", "purple","#C4A484")
 names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD masterdata
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("./data/masterdataProject1C_May24.csv")
+masterdata <- read.csv("./data/masterdataProject1C_Jan25.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -96,7 +98,7 @@ metadata$ramaciottieID <- str_replace_all(metadata$SampleID, c( "F5"="Chris_01",
                                       "S1554_ADFull" = "Chris_09", "S1813_ADFull" = "Chris_10", "S561toS566_AD.AD6" = "Chris_11", "S1001_3_4_AD1_3_4" = "Chris_12",
                                       "S1002_5_6_AD2_5_6" = "Chris_13", "S1147_49_50_AD1_3_4" = "Chris_14", "S1148_51_52_AD2_5_6" = "Chris_15", "S1154_57_58_AD2_5_6" = "Chris_16"))
 
-metadata <- metadata %>% mutate(VFAs = rowSums(select(., contains("acid"))) )
+metadata <- metadata %>% mutate(VFAs = rowSums(dplyr::select(., contains("acid"))) )
 metadata[c("S561toS566_AD.AD6"),c("SludgeType")] <- "Control"
 rm(df, df1, df2)
 
@@ -199,92 +201,133 @@ foamdata <-  foamdata %>% column_to_rownames("X.SludgeID")
 ```
 
 
-## Supp. figure 3 gflow
+## Supp. figure S3 gflow
 ```{r message=FALSE, warning=FALSE}
 # Daily from masterfile 
 nrow(masterdata %>% 
   dplyr::filter(Gasflow_mL > 20000)) # outlier
 
-firstdate <- "2023-03-01"  
-lastdate <- "2023-08-15"
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
 
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
+
+firstdate <- -2  # selected periods for Supplementary
+lastdate <- 166
+weeky <- -1
+  
 pexcl <- masterdata %>% 
   dplyr::filter(Gasflow_mL >= 0 &
                   Gasflow_mL < 20000) %>% 
     dplyr::filter(Date != c("2023-06-08")) %>%   # outlier as the heaters turned off that day
  dplyr::filter(AD != "AD4") %>% #AD4 always behaved differently due to the lack of pre-mixing
   mutate(Gasflow_L = Gasflow_mL / 1000) %>% 
-  ggline(x = "Date",
+  ggline(x = "daysop",
          y = "Gasflow_L", 
          color = "Treatment",
          legend = "right",
          add = "mean_se",
          add.params = list(width = 0.75)) +
- scale_color_manual("Sludge Type", values = cols) +
+  
+ scale_color_manual("CSTR", values = cols) +
   theme_light() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45,  hjust=1),
-        legend.position = c(0.90, 0.82),
+  
+  theme(
+        #axis.title.x = element_blank(),
+        #axis.text.x = element_text(angle = 0,  hjust=1),
+        legend.position = "none",
         legend.background=element_rect(fill = alpha("white", 0.5)) )   + 
   
-    scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
-         date_minor_breaks = "1 day",
-          limits = as.Date(c(firstdate, lastdate)) ) +
-
-  annotate("text",x = as.Date("2023-04-21"), y = -1, label = "W08 ", size = 2.5) +   #Week 08
-   annotate("text",x = as.Date("2023-04-28"), y = -1, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = -1, label = "W10 ", size = 2.5) +   #Week 10
-   annotate("text",x = as.Date("2023-05-12"), y = -1, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = -1, label = "W12 ", size = 2.5) +   #Week 12
-   annotate("text",x = as.Date("2023-05-26"), y = -1, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = -1, label = "W14 ", size = 2.5) +   #Week 14
-   annotate("text",x = as.Date("2023-06-09"), y = -1, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = -1, label = "W16 ", size = 2.5) +   #Week 16
-   annotate("text",x = as.Date("2023-06-23"), y = -1, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = -1, label = "W18 ", size = 2.5) +    #Week 18
+   scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
   
- annotate("text",x = as.Date("2023-03-20"), y = -.4, label = "Converging", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-03-01"), xend = as.Date("2023-04-01"),
+  #  scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
+  #       date_minor_breaks = "1 day",
+  #        limits = as.Date(c(firstdate, lastdate)) ) +
+  
+  annotate("text",x = 2, y = weeky, label = "W01 ", size = 2.5) +   #Week 01
+  annotate("text",x = 9, y = weeky, label = "W02 ", size = 2.5) +   #Week 02
+   annotate("text",x = 16, y = weeky, label = "W03 ", size = 2.5) +   #Week 03
+   annotate("text",x = 23, y = weeky, label = "W04 ", size = 2.5) +   #Week 04
+   annotate("text",x = 30, y = weeky, label = "W05 ", size = 2.5) +   #Week 05
+   annotate("text",x = 37, y = weeky, label = "W06 ", size = 2.5) +   #Week 06
+   annotate("text",x = 44, y = weeky, label = "W07 ", size = 2.5) +   #Week 07
+  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+   annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+   annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+   annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
+  
+  annotate("text",x = 19, y = -.4, label = "Converging", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 0, xend = 31,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-04-17"), y = -.4, label = "Steady state", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-04-01"), xend = as.Date("2023-05-02"),
+  annotate("text",x = 47, y = -.4, label = "Steady state", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 31, xend = 62,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-05"), y = -.4, label = "Glycerol   ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-02"), xend = as.Date("2023-05-07"),
+   annotate("text",x = 65, y = -.4, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 62, xend = 67,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-14"), y = -0.4, label = "   Inhibition", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-07"), xend = as.Date("2023-05-22"),
+   annotate("text",x = 74, y = -0.4, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-05-26"), y = -0.4, label = "Recovery", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-22"), xend = as.Date("2023-05-30"),
+  annotate("text",x = 86, y = -0.4, label = "Recovery", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-06-03"), y = -0.4, label = "Foaming ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-30"), xend = as.Date("2023-06-07"),
+  annotate("text",x = 94, y = -0.4, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 90, xend = 98,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-    annotate("text",x = as.Date("2023-06-10"), y = -0.4, label = "    Recovery", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-06-15"),
+    annotate("text",x = 101, y = -0.4, label = "    Recovery", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 98, xend = 106,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  
-    annotate("text",x = as.Date("2023-05-25"), y = 4, label = "Paused feeding", size = 2.5, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 0, ymax = 6,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
-             fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-06-03"), y = 7, label = "Foam", size = 2.5, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 4.5, ymax = 8, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
-             fill = "blue", alpha = .1) +
-  
-   annotate("text",x = as.Date("2023-07-17"), y = -.4, label = "Steady state post foam", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-08-12"),
+     annotate("text",x = 138, y = -.4, label = "Steady state post foam", size = 3) +
+   annotate("segment", y = 0, yend = 0, x = 98, xend = 164,
             arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
   
-  ylab(expression(paste("Gasflow (L day"^-1*")"))) 
+    annotate("text",x = 85, y = 3.65, label = "Feeding paused", size = 3, angle = 90, alpha = 0.6) +
+    annotate("rect", ymin = 0, ymax = 6,  xmin = 82, xmax = 89,
+             fill = "blue", alpha = .1) +
+
+    annotate("text",x = 94, y = 7, label = "Foam", size = 3, angle = 90, alpha = 0.6) +
+    annotate("rect", ymin = 4.5, ymax = 8, xmin = 92, xmax = 97, 
+             fill = "blue", alpha = .1) +
+  
+
+  
+  ylab(expression(paste("Gasflow (L day"^-1*")"))) +
+  xlab("Day of operation")
 
 pincl <- masterdata %>% 
   dplyr::filter(Gasflow_mL >= 0 &
@@ -292,74 +335,94 @@ pincl <- masterdata %>%
     dplyr::filter(Date != c("2023-06-08")) %>%   # outlier as the heaters turned off that day
 #  dplyr::filter(AD != "AD4") %>% #AD4 always behaved differently due to the lack of pre-mixing
   mutate(Gasflow_L = Gasflow_mL / 1000) %>% 
-  ggline(x = "Date",
+  ggline(x = "daysop",
          y = "Gasflow_L", 
          color = "Treatment",
          legend = "right",
          add = "mean_se",
          add.params = list(width = 0.75)) +
- scale_color_manual("Sludge Type", values = cols) +
+  
+ scale_color_manual("CSTR", values = cols) +
   theme_light() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45,  hjust=1),
+  
+  theme(
+        axis.title.x = element_blank(),
+        #axis.text.x = element_text(angle = 0,  hjust=1),
         legend.position = c(0.90, 0.82),
         legend.background=element_rect(fill = alpha("white", 0.5)) )   + 
   
-    scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
-         date_minor_breaks = "1 day",
-          limits = as.Date(c(firstdate, lastdate)) ) +
-
-  annotate("text",x = as.Date("2023-04-21"), y = -1, label = "W08 ", size = 2.5) +   #Week 08
-   annotate("text",x = as.Date("2023-04-28"), y = -1, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = -1, label = "W10 ", size = 2.5) +   #Week 10
-   annotate("text",x = as.Date("2023-05-12"), y = -1, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = -1, label = "W12 ", size = 2.5) +   #Week 12
-   annotate("text",x = as.Date("2023-05-26"), y = -1, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = -1, label = "W14 ", size = 2.5) +   #Week 14
-   annotate("text",x = as.Date("2023-06-09"), y = -1, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = -1, label = "W16 ", size = 2.5) +   #Week 16
-   annotate("text",x = as.Date("2023-06-23"), y = -1, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = -1, label = "W18 ", size = 2.5) +    #Week 18
+    scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
   
-   annotate("text",x = as.Date("2023-03-20"), y = -.4, label = "Converging", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-03-01"), xend = as.Date("2023-04-01"),
+  #  scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
+  #       date_minor_breaks = "1 day",
+  #        limits = as.Date(c(firstdate, lastdate)) ) +
+  
+  annotate("text",x = 2, y = weeky, label = "W01 ", size = 2.5) +   #Week 01
+  annotate("text",x = 9, y = weeky, label = "W02 ", size = 2.5) +   #Week 02
+   annotate("text",x = 16, y = weeky, label = "W03 ", size = 2.5) +   #Week 03
+   annotate("text",x = 23, y = weeky, label = "W04 ", size = 2.5) +   #Week 04
+   annotate("text",x = 30, y = weeky, label = "W05 ", size = 2.5) +   #Week 05
+   annotate("text",x = 37, y = weeky, label = "W06 ", size = 2.5) +   #Week 06
+   annotate("text",x = 44, y = weeky, label = "W07 ", size = 2.5) +   #Week 07
+    annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+    annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+   annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+   annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
+  
+   annotate("text",x = 19, y = -.4, label = "Converging", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 0, xend = 31,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-04-17"), y = -.4, label = "Steady state", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-04-01"), xend = as.Date("2023-05-02"),
+  annotate("text",x = 47, y = -.4, label = "Steady state", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 31, xend = 62,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-05"), y = -.4, label = "Glycerol   ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-02"), xend = as.Date("2023-05-07"),
+   annotate("text",x = 65, y = -.4, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 62, xend = 67,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-14"), y = -0.4, label = "   Inhibition", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-07"), xend = as.Date("2023-05-22"),
+   annotate("text",x = 74, y = -0.4, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-05-26"), y = -0.4, label = "Recovery", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-22"), xend = as.Date("2023-05-30"),
+  annotate("text",x = 86, y = -0.4, label = "Recovery", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-06-03"), y = -0.4, label = "Foaming ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-30"), xend = as.Date("2023-06-07"),
+  annotate("text",x = 94, y = -0.4, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 90, xend = 98,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-    annotate("text",x = as.Date("2023-06-10"), y = -0.4, label = "    Recovery", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-06-15"),
+    annotate("text",x = 101, y = -0.4, label = "    Recovery", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 98, xend = 106,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-    annotate("text",x = as.Date("2023-05-25"), y = 4, label = "Paused feeding", size = 2.5, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 0, ymax = 6,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
-             fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-06-03"), y = 7, label = "Foam", size = 2.5, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 4.5, ymax = 8, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
-             fill = "blue", alpha = .1) +
-  
-   annotate("text",x = as.Date("2023-07-17"), y = -.4, label = "Steady state post foam", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-08-12"),
+   annotate("text",x = 138, y = -.4, label = "Steady state post foam", size = 3) +
+   annotate("segment", y = 0, yend = 0, x = 98, xend = 164,
             arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
+  
+    annotate("text",x = 85, y = 3.65, label = "Feeding paused", size = 3, angle = 90, alpha = 0.6) +
+    annotate("rect", ymin = 0, ymax = 6,  xmin = 82, xmax = 89,
+             fill = "blue", alpha = .1) +
+
+    annotate("text",x = 94, y = 7, label = "Foam", size = 3, angle = 90, alpha = 0.6) +
+    annotate("rect", ymin = 4.5, ymax = 8, xmin = 92, xmax = 97, 
+             fill = "blue", alpha = .1) +
   
   ylab(expression(paste("Gasflow (L day"^-1*")"))) 
 
@@ -368,7 +431,7 @@ ggarrange(pincl, pexcl, labels = "AUTO", ncol = 1)
 ggsave("./Figures/Sup_lineplot_gasdaily_inclexclAD4.png", height=20, width=27, units='cm', dpi=300)
 ```
 
-## Supp. figure 3 gflow - ind ADs (not used)
+## Supp. figure S3 gflow - ind ADs (not used)
 ```{r fig.height=7, fig.width=10, message=FALSE, warning=FALSE}
 # Daily from masterfile 
 nrow(masterdata %>% 
@@ -455,17 +518,39 @@ ggsave("./Figures/Sup_lineplot_gasdaily_indADs.png", height=15, width=25, units=
 ```
 
 
-## Supp. figure 4 CH4
+## Supp. figure S4 CH4
 ```{r message=FALSE, warning=FALSE}
 
-weeky <- c(-2.5)
-labely <- c(3)
+firstdate <- -2  # selected periods for Supplementary
+lastdate <- 166
+weeky <- c(-6.5)
+labely <- c(-2.5)
 segmenty <- c(0)
+
+
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
+
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
+
 
 ## Gas comp
 masterdata %>%
     dplyr::filter(CH4_pct >= 0) %>% 
-  ggline(x = "Date",
+  ggline(x = "daysop",
          y = "CH4_pct", 
          color = "Treatment",
          legend = "right",
@@ -473,531 +558,512 @@ masterdata %>%
          add.params = list(width = 1)) +
   ylab("CH4 (%)") +
   theme_light() +
-  scale_color_manual("Sludge Type", values = cols)  +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45,  hjust=1),
-        #legend.position = c(0.9, 0.4)
-        legend.position = "none" 
+  scale_color_manual("CSTR", values = cols)  +
+  theme(
+       #axis.title.x = element_blank(),
+       # axis.text.x = element_text(angle = 0,  hjust=1),
+        legend.position = c(0.9, 0.4)
+       # legend.position = "none" 
         )   + 
   
-  scale_x_date(date_breaks = "1 week", date_labels = '%b %d', 
-               date_minor_breaks = "1 day",
-               limits = as.Date(c(firstdate, lastdate) )) +
+   scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
 
-  annotate("text",x = as.Date("2023-04-21"), y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-   annotate("text",x = as.Date("2023-04-28"), y = weeky, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = weeky, label = "W10 ", size = 2.5) +   #Week 10
-   annotate("text",x = as.Date("2023-05-12"), y = weeky, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-   annotate("text",x = as.Date("2023-05-26"), y = weeky, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-   annotate("text",x = as.Date("2023-06-09"), y = weeky, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-   annotate("text",x = as.Date("2023-06-23"), y = weeky, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  annotate("text",x = 2, y = weeky, label = "W01 ", size = 2.5) +   #Week 01
+  annotate("text",x = 9, y = weeky, label = "W02 ", size = 2.5) +   #Week 02
+   annotate("text",x = 16, y = weeky, label = "W03 ", size = 2.5) +   #Week 03
+   annotate("text",x = 23, y = weeky, label = "W04 ", size = 2.5) +   #Week 04
+   annotate("text",x = 30, y = weeky, label = "W05 ", size = 2.5) +   #Week 05
+   annotate("text",x = 37, y = weeky, label = "W06 ", size = 2.5) +   #Week 06
+   annotate("text",x = 44, y = weeky, label = "W07 ", size = 2.5) +   #Week 07
+    annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+    annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+   annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+   annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
   
-  annotate("text",x = as.Date("2023-03-20"), y = labely, label = "Converging", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-03-01"), xend = as.Date("2023-04-01"),
+   annotate("text",x = 19, y = labely, label = "Converging", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 0, xend = 31,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-04-17"), y = labely, label = "Steady state", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-04-01"), xend = as.Date("2023-05-02"),
+  annotate("text",x = 47, y = labely, label = "Steady state", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 31, xend = 62,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-     annotate("text",x = as.Date("2023-05-05"), y = labely, label = "Glycerol   ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-02"), xend = as.Date("2023-05-07"),
+   annotate("text",x = 65, y = labely, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 62, xend = 67,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-14"), y = labely, label = "   Inhibition", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-07"), xend = as.Date("2023-05-22"),
+   annotate("text",x = 74, y = labely, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-05-26"), y = labely, label = "Recovery", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-22"), xend = as.Date("2023-05-30"),
+  annotate("text",x = 86, y = labely, label = "Recovery", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-06-03"), y = labely, label = "Foaming ", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-30"), xend = as.Date("2023-06-07"),
+  annotate("text",x = 94, y = labely, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 90, xend = 98,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-    annotate("text",x = as.Date("2023-06-10"), y = labely, label = "    Recovery", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-06-07"), xend = as.Date("2023-06-15"),
+    annotate("text",x = 101, y = labely, label = "    Recovery", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 98, xend = 106,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-     annotate("text",x = as.Date("2023-07-17"), y = labely, label = "Steady state post foam", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-08-12"),
+     annotate("text",x = 138, y = labely, label = "Steady state post foam", size = 2.5) +
+   annotate("segment", y = 0, yend = 0, x = 98, xend = 164,
             arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
   
-   # annotate("text",x = as.Date("2023-05-04"), y = 301, label = "Glycerol", size = 2.5) +
-    #annotate("rect",ymin =5.5, ymax = 300, xmin = as.Date("2023-05-02"), xmax = as.Date("2023-05-7"), 
-     #        fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-05-25"), y = 20, label = "Paused feeding", size = 2.5, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 0, ymax = 75,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
+    annotate("text",x = 85.5, y = 35, label = "Feeding\npaused", size = 3.5, alpha = 0.4, angle = 90) +
+    annotate("rect", ymin = 0, ymax = 75,  xmin = 82, xmax = 89,
              fill = "blue", alpha = .1) +
 
-    annotate("text",x = as.Date("2023-06-03"), y = 65, label = "Foam", size = 2, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 60, ymax = 75, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
-             fill = "blue", alpha = .1) +
-  
-  ylab(expression(paste("CH"[4]*" (%)")))
+    annotate("text",x = 94.5, y = 67, label = "Foaming", size = 2.5, alpha = 0.5, angle = 90) +
+    annotate("rect", ymin = 60, ymax = 75, xmin = 92, xmax = 97, fill = "blue", alpha = .1) +
+ # 
+  ylab(expression(paste("CH"[4]*" (%)"))) +
+  xlab("Day of operation")
   
 ggsave("./Figures/Sup_lineplot_CH4.png", height=8, width=26, units='cm', dpi=300)
 ```
 
-## Supp. figure 5 pH
+## Supp. figure S5 pH
 ```{r message=FALSE, warning=FALSE}
+firstdate <- -2  # selected periods for Supplementary
+lastdate <- 166
 weeky <- c(4.8)
 labely <- c(5.25)
 segmenty <- c(5)
 
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
+
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
+
 masterdata %>% 
   dplyr::filter(Treatment != "PSTWAS") %>% 
   dplyr::filter(pH >= 0) %>%  
-  ggline(x = "Date",
+  ggline(x = "daysop",
          y = "pH", 
          color = "Treatment",
          legend = "right",
          add = "mean_se",
          add.params = list(width = 1)) +
- scale_color_manual("Treatment", values = cols) +
+ scale_color_manual("CSTR", values = cols) +
   theme_light() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45,  hjust=1),
+  theme(
+        #axis.title.x = element_blank(),
+        #axis.text.x = element_text(angle = 0,  hjust=1),
         legend.position = c(0.9, 0.4))  + 
   
-    scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
-         date_minor_breaks = "1 day",
-          limits = as.Date(c(firstdate, lastdate)) ) +
-  
+ scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
     
-  annotate("text",x = as.Date("2023-04-21"), y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-   annotate("text",x = as.Date("2023-04-28"), y = weeky, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = weeky, label = "W10 ", size = 2.5) +   #Week 10
-   annotate("text",x = as.Date("2023-05-12"), y = weeky, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-   annotate("text",x = as.Date("2023-05-26"), y = weeky, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-   annotate("text",x = as.Date("2023-06-09"), y = weeky, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-   annotate("text",x = as.Date("2023-06-23"), y = weeky, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+   annotate("text",x = 2, y = weeky, label = "W01 ", size = 2.5) +   #Week 01
+   annotate("text",x = 9, y = weeky, label = "W02 ", size = 2.5) +   #Week 02
+   annotate("text",x = 16, y = weeky, label = "W03 ", size = 2.5) +   #Week 03
+   annotate("text",x = 23, y = weeky, label = "W04 ", size = 2.5) +   #Week 04
+   annotate("text",x = 30, y = weeky, label = "W05 ", size = 2.5) +   #Week 05
+   annotate("text",x = 37, y = weeky, label = "W06 ", size = 2.5) +   #Week 06
+   annotate("text",x = 44, y = weeky, label = "W07 ", size = 2.5) +   #Week 07
+    annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+    annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+   annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+   annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
   
-  
-  annotate("text",x = as.Date("2023-03-20"), y = labely, label = "Converging", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-03-01"), xend = as.Date("2023-04-01"),
+  annotate("text",x = 19, y = labely, label = "Converging", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 0, xend = 31,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-04-17"), y = labely, label = "Steady state", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-04-01"), xend = as.Date("2023-05-02"),
+  annotate("text",x = 47, y = labely, label = "Steady state", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 31, xend = 62,
             arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-05"), y = labely, label = "Glycerol   ", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-02"), xend = as.Date("2023-05-07"),
+   annotate("text",x = 65, y = labely, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 62, xend = 67,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-   annotate("text",x = as.Date("2023-05-14"), y = labely, label = "   Inhibition", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-07"), xend = as.Date("2023-05-22"),
+   annotate("text",x = 74, y = labely, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-05-26"), y = labely, label = "Recovery", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-22"), xend = as.Date("2023-05-30"),
+  annotate("text",x = 86, y = labely, label = "Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-  annotate("text",x = as.Date("2023-06-03"), y = labely, label = "Foaming ", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-05-30"), xend = as.Date("2023-06-07"),
+  annotate("text",x = 94, y = labely, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 90, xend = 98,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-    annotate("text",x = as.Date("2023-06-10"), y = labely, label = "    Recovery", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-06-07"), xend = as.Date("2023-06-15"),
+    annotate("text",x = 101, y = labely, label = "    Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 106,
             arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
   
-      annotate("text",x = as.Date("2023-07-17"), y = labely, label = "Steady state post foam", size = 2.5) +
-   annotate("segment", y = segmenty, yend = segmenty, x = as.Date("2023-06-07"), xend = as.Date("2023-08-12"),
+     annotate("text",x = 138, y = labely, label = "Steady state post foam", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 164,
             arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
   
-   # annotate("text",x = as.Date("2023-05-04"), y = 301, label = "Glycerol", size = 2.5) +
-    #annotate("rect",ymin =5.5, ymax = 300, xmin = as.Date("2023-05-02"), xmax = as.Date("2023-05-7"), 
-     #        fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-05-25"), y = 7, label = "   Paused\n  feeding", size = 2) +
-    annotate("rect", ymin = 6, ymax = 7.75,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
+    annotate("text",x = 85.5, y = 7, label = "Feeding\npaused", size = 3.5, alpha = 0.4, angle = 90) +
+    annotate("rect", ymin = 6, ymax = 7.75,  xmin = 82, xmax = 89,
              fill = "blue", alpha = .1) +
-
-   # annotate("text",x = as.Date("2023-06-03"), y = 6.75, label = "  Foam", size = 2) +
-    #annotate("rect", ymin = 7, ymax = 7.25, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
-    #         fill = "blue", alpha = .1) +
-  ylab("pH") 
+  
+  ylab("pH") +
+  xlab("Day of operation")
 
 ggsave("./Figures/Sup_lineplot_ph.png", height=8, width=26, units='cm', dpi=300)
 
 ```
 
-## Supp. figure 7 phylum abund
-#### Control
+## Supp. figure S6 DNA (mg gCOD)
 ```{r message=FALSE, warning=FALSE}
-firstdate <- "2023-03-01"
-lastdate <- "2023-08-15"
-weeky <- c(-0.01)
-labely <- c(.05)
+firstdate <- 47  
+lastdate <- 124
+weeky <- -0.3
+labely <- c(-0.125)
 segmenty <- c(0)
-
-ps.rel <- microbiome::aggregate_taxa(ps.flt, "Phylum")
-ps.rel <- ps.rel %>% 
-  microbiome::transform(transform = 'compositional')
-df <- phyloseq::psmelt(ps.rel) %>% 
-  mutate(Abundance = Abundance *100)
-
-p1 <- df %>% 
-  group_by(Date, Kingdom, Phylum, CSTR, SludgeType) %>% 
-   summarise(value = median(Abundance)) %>% 
-    dplyr::filter(SludgeType %in% c("Control")) %>% 
   
-  ggplot(., aes(x=Date, y=value, fill=Phylum)) + 
-  geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
-  facet_wrap(vars(CSTR), ncol = 1) +
-  scale_x_date(date_breaks = "1 week", date_labels = '%b %d', 
-               date_minor_breaks = "1 day",
-               limits = as.Date(c(firstdate, lastdate) )) +
-  ylab("Relative Abundance") +
+masterdata %>% dplyr::filter(DNA_mg_gCOD > 0 & 
+                               DNA_mg_gCOD < 5 ) %>% 
+  ggline(x = "daysop",
+         y = "DNA_mg_gCOD", 
+         color = "SludgeType",
+         legend = "right",
+         add = "mean_se",
+         add.params = list(width = 1)) +
+ 
+      scale_color_manual("Sludge type", 
+        values = cols, labels=c('Control CSTR', 'Treatment CSTR', 'Full-scale CSTR', "PS/TWAS")) +
+    scale_shape_manual(values = c(15, 15, 16, 17)) +
+  
+  guides(color = guide_legend( 
+    override.aes=list(shape = c(15, 15, 16, 17))),
+    shape = "none") +
+
   theme_light() +
- # scale_color_manual("Treatment", values = cols)  +
+  
   theme(
-        axis.title.x = element_blank(),
-       #axis.text.x = element_blank(),
-        axis.text.x = element_text(angle = 90,  hjust=1),
-        legend.position = "top",
-       legend.title = element_blank()
-       )   +
-  annotate("text",x = as.Date("2023-04-21"), y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-#   annotate("text",x = as.Date("2023-04-28"), y = weeky, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = weeky, label = "W10 ", size = 2.5) +   #Week 10
- #  annotate("text",x = as.Date("2023-05-12"), y = weeky, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-  # annotate("text",x = as.Date("2023-05-26"), y = weeky, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-   #annotate("text",x = as.Date("2023-06-09"), y = weeky, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-   #annotate("text",x = as.Date("2023-06-23"), y = weeky, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = weeky, label = "W18 ", size = 2.5)   +  #Week 18
+      #axis.title.x = element_blank(),
+      #axis.text.x = element_text(angle = 0,  hjust=.5)
+      legend.position = c(0.88, 0.83),
+      legend.background=element_rect(fill = alpha("white", 0.1)),
+      legend.key.height = unit(0.7, "line")  # Adjust this value to make the legend shorter
+      )  + 
   
-   annotate("text",x = as.Date("2023-05-25"), y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 0, ymax = 100,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
-             fill = "blue", alpha = .1) +
-  guides(fill=guide_legend(ncol=6)) + 
-  ggtitle("Control")
+     scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
+  
+  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  
+  
+ annotate("text",x = 54, y = labely, label = "Steady state", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 47, xend = 62,
+            arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
+  
+   annotate("text",x = 65, y = labely, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 62, xend = 67,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+   annotate("text",x = 74, y = labely, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+  annotate("text",x = 85, y = labely, label = "  Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+  annotate("text",x = 94, y = labely, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 90, xend = 98,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+    annotate("text",x = 101, y = labely, label = "  Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 106,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+    annotate("text",x = 115, y = labely, label = "Steady state post foam", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 124,
+            arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
+  
 
+    annotate("text",x = 85, y = 1.25, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
+    annotate("rect", ymin = 0, ymax = 2.5, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+  
+  ylab(expression(paste("DNA (mg gCOD"^-1*")"))) +
+  xlab("Day of operation")
+
+ggsave("./Figures/Sup_lineplot_mgCOD.png", height=3, width=6.75, units='in', dpi=300)
 ```
 
-#### Treatment
+## Supp. figure S7 Shannon
 ```{r message=FALSE, warning=FALSE}
-firstdate <- "2023-03-01"
-lastdate <- "2023-08-15"
-weeky <- c(-0.01)
-labely <- c(.05)
-segmenty <- c(0)
+firstdate <- 47  
+lastdate <- 124
+weeky <- 3.2
+labely <- c(3.35)
+segmenty <- c(3.5)
 
-ps.rel <- microbiome::aggregate_taxa(ps.flt, "Phylum")
+masterdata %>% dplyr::filter(ngmL_qb >= 0 ) %>% 
+  ggline(x = "daysop",
+         y = "Shannon", 
+         color = "SludgeType",
+         legend = "top",
+         add = "mean_se",
+         add.params = list(width = 1)) +
 
-ps.rel <- ps.rel %>% 
-  microbiome::transform(transform = 'compositional')
-df <- phyloseq::psmelt(ps.rel)  %>% 
-  mutate(Abundance = Abundance *100)
-
-p2 <- df %>% 
-  group_by(Date, Kingdom, Phylum, CSTR, SludgeType) %>% 
-   summarise(value = median(Abundance)) %>% 
-  dplyr::filter(SludgeType %in% c("Treatment")) %>% 
+        scale_color_manual("Sample type", 
+        values = cols, labels=c('Control CSTR', 'Treatment CSTR', 'Foam', "Full-scale CSTR", "PS/TWAS")) +
+    scale_shape_manual(values = c(15, 15, 16, 15, 17)) +
   
-  ggplot(., aes(x=Date, y=value, fill=Phylum)) + 
-  geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
-  facet_wrap(vars(CSTR), ncol = 1) +
-  scale_x_date(date_breaks = "1 week", date_labels = '%b %d', 
-               date_minor_breaks = "1 day",
-               limits = as.Date(c(firstdate, lastdate) )) +
-  ylab("Relative Abundance") +
+  guides(color = guide_legend( 
+    override.aes=list(shape = c(15, 15, 16,  15, 17))),
+    shape = "none") +
+  
   theme_light() +
-   theme(
-        axis.title.x = element_blank(), 
-        axis.title.y = element_blank(),
-         axis.text.y = element_blank(),
-        axis.text.x = element_text(angle = 90,  hjust=1),
-        legend.position = "top",
-        legend.title = element_blank()
-        )   +
-  annotate("text",x = as.Date("2023-04-21"), y = weeky, label = "W08 ", size = 2.5) +   #Week 08
-#   annotate("text",x = as.Date("2023-04-28"), y = weeky, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = weeky, label = "W10 ", size = 2.5) +   #Week 10
- #  annotate("text",x = as.Date("2023-05-12"), y = weeky, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = weeky, label = "W12 ", size = 2.5) +   #Week 12
-  # annotate("text",x = as.Date("2023-05-26"), y = weeky, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = weeky, label = "W14 ", size = 2.5) +   #Week 14
-   #annotate("text",x = as.Date("2023-06-09"), y = weeky, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = weeky, label = "W16 ", size = 2.5) +   #Week 16
-   #annotate("text",x = as.Date("2023-06-23"), y = weeky, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = weeky, label = "W18 ", size = 2.5)   +  #Week 18
+ 
+  theme(
+      #axis.title.x = element_blank(),
+      #axis.text.x = element_text(angle = 0,  hjust=.5)
+   #   legend.position = c(0.88, 0.83),
+   #   legend.background=element_rect(fill = alpha("white", 0.1)),
+     legend.key.height = unit(0.7, "line")  # Adjust this value to make the legend shorter
+     )  + 
   
-   annotate("text",x = as.Date("2023-05-25"), y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.6) +
-    annotate("rect", ymin = 0, ymax = 100,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
-             fill = "blue", alpha = .1) + 
- annotate("text",x = as.Date("2023-05-04"), y = 50, label = "Glycerol", size = 4, angle = 90, alpha = 0.6) +
-    annotate("rect",ymin =0, ymax = 100, xmin = as.Date("2023-05-02"), xmax = as.Date("2023-05-7"), 
-            fill = "blue", alpha = .1) +
-    annotate("text",x = as.Date("2023-06-03"), y = 50, label = "Foam observed", size = 4, angle = 90, alpha = 0.65) +
-    annotate("rect",ymin =0, ymax = 100, xmin = as.Date("2023-06-02"), xmax = as.Date("2023-06-05"), 
-            fill = "blue", alpha = .1) +
-  guides(fill=guide_legend(ncol=3)) + 
-  ggtitle("Treatment")
+   scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
+
+    annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  
+  
+   annotate("text",x = 54, y = labely, label = "Steady state", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 47, xend = 62,
+            arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
+  
+   annotate("text",x = 65, y = labely, label = "Glycerol   ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 62, xend = 67,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+   annotate("text",x = 74, y = labely, label = "   Inhibition", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 67, xend = 82,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+  annotate("text",x = 85, y = labely, label = "  Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 82, xend = 90,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+  annotate("text",x = 94, y = labely, label = "Foaming ", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 90, xend = 98,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+    annotate("text",x = 101, y = labely, label = "  Recovery", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 106,
+            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
+  
+    annotate("text",x = 115, y = labely, label = "Steady state post foam", size = 2.5) +
+   annotate("segment", y = segmenty, yend = segmenty, x = 98, xend = 124,
+            arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
+  
+
+    annotate("text",x = 85, y = 4.25, label = "Feeding paused", size = 3, angle = 90, alpha = 0.5) +
+    annotate("rect", ymin = segmenty, ymax = 5, xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
+
+    #annotate("text",x = as.Date("2023-06-03"), y = 301, label = "Foam", size = 2) +
+  #  annotate("rect", ymin = 5.5, ymax = 125, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
+  #           fill = "blue", alpha = .1) +
+  ylab(expression(paste("Shannon")))  +
+  xlab("Day of operation")
+
+ggsave("./Figures/Sup_lineplot_shannon.png", height=3, width=7.5, units='in', dpi=300)
 ```
 
-### Combined
-```{r fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
-ggarrange(p1, p2, common.legend = TRUE, widths = c(0.52,0.48), legend = "top")
 
-ggsave( "./Figures/Sup_areaplot_all_phylum.png", height=27, width=26, units='cm', dpi=300)
-```
-
-## Supp. figure 8 Ampviz heatmaps mg
+## Supplementary Figure S8
+### VFAs
 ```{r message=FALSE, warning=FALSE}
-library(ampvis2)
+weeky <- c(-150)
+labely <- c(50)
+segmenty <- c(0)
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
 
-# Squeezemeta as described 
-psobject <- psmg
-sample_data(psobject)$SludgeType <- factor(sample_data(psobject)$SludgeType, levels = c("Control", "Treatment", "Foam", "Full-scale", "PSTWAS"))
-#set.seed(1000)
-#psobject <- phyloseq::rarefy_even_depth(psobject)
-metadata <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-#metadata$`#OTU ID` <-  str_replace_all(metadata$`#OTU ID`, "-", ".") 
-taxtable <- data.frame(tax_table(psobject)) %>% dplyr::rename("Kingdom" = SuperKingdom)
-ASVtable <- data.frame(otu_table(psobject))
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
 
-amp <- amp_load(otutable = ASVtable,
-              metadata = metadata,
-              taxonomy = taxtable)
-p <- amp_heatmap(amp, tax_aggregate = "Phylum", tax_show = 30, showRemainingTaxa = TRUE, 
-                  normalise = TRUE, facet_by = "SludgeType", group_by = "Date")
-pmg <- p +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
+VFAs <- masterdata %>% 
+        dplyr::select(SampleID.VFA, daysop, Date, AD, Treatment, Ethanol, Propanol,Butanol, X1.Hexanol, Acetic.acid, Propionic.acid, iso.Butyric.acid, Butyric.acid, iso.Valeric.acid, Valeric.acid, X4.Methyl.valeric.acid, Hexanoic.acid) %>% filter(SampleID.VFA != "")
 
-## HMMER Predicted, 16S extracted, Midas 53
-df <- read.csv("./data/2024-06-11_arcbac_phylotabel.csv")
-df <- df %>% 
-    dplyr::rename(S561toS566_AD.AD6 = Chris.11,
-      S1001_3_4_AD1_3_4 = Chris.12,
-      S1002_5_6_AD2_5_6 = Chris.13,
-      S1147_49_50_AD1_3_4 = Chris.14,
-      S1148_51_52_AD2_5_6 = Chris.15,
-      S1154_57_58_AD2_5_6 = Chris.16,
-        F5 = Chris.01,
-        F55 = Chris.02,
-        F110 = Chris.03,
-        F124 = Chris.04,
-        F179 = Chris.05,
-          S119.full = Chris.06,
-          S370.full = Chris.07,
-          S1273.ADFull = Chris.08,
-          S1554.ADFull = Chris.09,
-          S1813.ADFull = Chris.10) 
+# Control
+p1 <- VFAs %>% 
+  pivot_longer(Acetic.acid:Hexanoic.acid, names_to = "Compound") %>% 
+ dplyr::filter(Treatment %in% c("Control")) %>% 
+ # dplyr::filter(AD != c("AD3")) %>% 
+  group_by(daysop, Compound, Treatment) %>% 
+  summarise(value = median(value)) %>% 
+ggplot(., aes(x=daysop, y=value, fill=Compound)) + 
+    geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
+  facet_wrap(vars(Treatment)) +
+  ylab(expression(paste("Concentration (mg L"^-1*")"))) + 
+  scale_fill_viridis_d(labels = c("Acetic acid"," Butyric acid","Hexanoic acid","iso-Butyric acid","iso-Valeric acic","Propionic acid", "Valeric acid", "4-Methylvaleric acid")) +
+  theme_light() +
+  theme( 
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 0,  hjust=1, vjust = 0.5)
+        ) + 
+  
+   scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
+  
+  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  
+  ylim(weeky, 5000)  +
+  
+  guides(fill = guide_legend(override.aes = list(size = 4), 
+          keywidth = 0.5, 
+          keyheight = 0.5))   + 
+  
+  annotate("text",x = 85, y = 3000, label = "Feeding paused", size = 3, angle = 90, alpha = .6) +
+    annotate("rect", ymin = 0, ymax = 5000,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) 
 
-ncol(df %>% select( F5:S1154_57_58_AD2_5_6) )
-colSums(df %>% select( F5:S1154_57_58_AD2_5_6) ) 
-amp <- amp_load(otutable = df,
-                metadata = (metadata) )
+# Treatment
+p2 <- VFAs %>% pivot_longer(Acetic.acid:Hexanoic.acid, names_to = "Compound") %>% 
+ dplyr::filter(Treatment %in% c("Treatment")) %>% 
+  group_by(daysop, Compound, Treatment) %>% 
+  summarise(value = median(value)) %>% 
+ggplot(., aes(x=daysop, y=value, fill=Compound)) + 
+    geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
+  facet_wrap(vars(Treatment)) +
+  #ylab("Concentration (mg/L)") +
+  scale_fill_viridis_d(labels = c("Acetic acid"," Butyric acid","Hexanoic acid","iso-Butyric acid","iso-Valeric acic","Propionic acid", "Valeric acid", "4-Methylvaleric acid")) +
+  theme_light() +
+  theme(
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 0,  hjust=1, vjust = 0.5))  + 
+  
+   scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) )  +
+  
+  annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+   annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+  
+    annotate("text",x = 64, y = 3000, label = "Glycerol added", size = 3, angle = 90, alpha = .6) +
+    annotate("rect",ymin =0, ymax = 5000, xmin = 62, xmax = 66, fill = "blue", alpha = .1) +
 
-p <- amp_heatmap(amp, tax_aggregate = "Phylum", tax_show = 30, showRemainingTaxa = TRUE, 
-                  normalise = TRUE, group_by = "Date", facet_by = "SludgeType") #+ ggtitle("HMMER/sintax classification") 
+    annotate("text",x = 85, y = 3000, label = "Feeding paused", size = 3, angle = 90, alpha = .6) +
+    annotate("rect", ymin = 0, ymax = 5000,  xmin = 82, xmax = 89, fill = "blue", alpha = .1) +
 
-phmmer.midas <- p +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
+    annotate("text",x = 94, y = 3000, label = "Foam observed", size = 3, angle = 90, alpha = .6) +
+    annotate("rect", ymin = 0, ymax = 5000, xmin =92, xmax = 97, fill = "blue", alpha = .1)  +
+  
+  guides(fill = guide_legend(override.aes = list(size = 4), 
+          keywidth = 0.5, 
+          keyheight = 0.5))
 
+g1 <- ggarrange(p1, theme_void(), p2, common.legend = TRUE, nrow = 1, legend = "top", align = "v", 
+                widths = c(1,-0.02,0.9) )
 
-g1 <- ggarrange(pmg, phmmer.midas, ncol = 1, align = "hv", labels = "AUTO")
+g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
 
-ggsave(plot = g1, "./Figures/Sup_heatmap_hmmer_squemeta_phylum_comparison.png", height=33, width=25, units='cm', dpi=200)
-
+ggsave(plot = g1,  "./Figures/areaplot_vfas_daysop.pdf", height=9, width=17, units='cm', dpi=300)
 ```
 
-## Supp. figure 9 Ampviz heatmaps 16S top30
-```{r message=FALSE, warning=FALSE}
-psobject <- ps.flt
-set.seed(1000)
-psobject <- phyloseq::rarefy_even_depth(psobject)
-psobject <- phyloseq::prune_samples(sample_data(psobject)$Date %in% c("2023-03-03","2023-03-15", "2023-04-12", "2023-04-26","2023-05-01",  "2023-05-15", "2023-05-24", "2023-06-02","2023-06-09","2023-06-05","2023-06-14","2023-06-28","2023-07-26","2023-08-09"), psobject)
-psobject <- phyloseq::prune_samples(sample_data(psobject)$SampleID.TSVS %notin% c("F16", "F77", "F205", "F150"), psobject)
-psobject <- phyloseq::prune_samples(sample_data(psobject)$DNATubeID %notin% c("#061", "#062","#063", "#064","#065","#066",
-                                                                              "#216", "#217","#218", "#219","#220","#221"), psobject)
 
-metadata <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-taxtable <- data.frame(tax_table(psobject))
-ASVtable <- data.frame(otu_table(psobject))
-amp <- amp_load(otutable = ASVtable,
-              metadata = metadata,
-              taxonomy = taxtable)
-p2 <- amp_heatmap(amp, tax_aggregate = "Phylum", tax_show = 30, showRemainingTaxa = TRUE, 
-                  normalise = TRUE, facet_by = "SludgeType", group_by = "Date")
-
-
-p2 <- p2 +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
-
-ggsave(plot = p2 , "./Figures/Sup_heatmap_v3v4midas53_all_phylum.png",  height=18, width=29, units='cm', dpi=200)
-```
-
-## Supp. figure 10 Kegg pathways
-
-### Aldex and create filtervec
-```{r message=FALSE, warning=FALSE}
-library(ALDEx2)
-# Filter out full-scale AD
-taxtable <- data.frame(tax_table(ps_kegg))
-sample_data(ps_kegg)$SludgeType3 <- str_replace_all(sample_data(ps_kegg)$SludgeType, 
-                                        c("Control"="RMITAD", 
-                                       "Treatment"="RMITAD",
-                                       "Foam"="RMITAD",
-                                          "PSTWAS"="PSTWAS", 
-                                            "Full-scale"="Full-scale") )
-sample_data(ps_kegg)$SludgeType4 <- str_replace_all(sample_data(ps_kegg)$SludgeType, 
-                                        c("Control"="Control", 
-                                       "Treatment"="Treatment",
-                                       "Foam"="Treatment",
-                                          "PSTWAS"="PSTWAS", 
-                                            "Full-scale"="Full-scale") )
-
-ps.tmp   <- subset_samples(ps_kegg, sample_data(ps_kegg)$SludgeType3 %in% c("RMITAD"))
-ps.tmp  = subset_taxa(ps.tmp, PathwayL1 %notin% c("Human Diseases", "Organismal Systems"))
-ps.tmp   <-  prune_taxa(taxa_sums(ps.tmp) >= 100, ps.tmp) # minimum reads per feature
-prev.kegg <- prevalencedf(ps.tmp , Pathway)
-
-abun <- data.frame(phyloseq::otu_table(ps.tmp))
-conds <- as.character(sample_data(ps.tmp)$SludgeType4)
-summary(as.factor(conds))
-x <- aldex.clr(abun, conds, mc.samples=1000, denom="all",
-           verbose = TRUE)
-x.tt <- aldex.ttest(x, paired.test=FALSE, verbose=FALSE)
-x.effect <- aldex.effect(x, CI=T, verbose=FALSE)
-x.all <- data.frame(x.tt,x.effect) %>% rownames_to_column("ko")
-png("./Figures/Sup_aldex2.png", width = 14, height = 12,pointsize = 12,units="cm",res=300)
-aldex.plot(x.all, type="MA", test="wilcox")
-dev.off()
-#sgn <- sign(x.effect$effect.low) == sign(x.effect$effect.high)
-
-#par(mfrow=c(1,2))
-#plot(x.effect$rab.all, x.effect$diff.btw, pch=19, cex=0.3, col="grey", xlab="Abundance", ylab="Difference", main="Bland-Altman")
-#points(x.effect$rab.all[abs(x.effect$effect) >=2], x.effect$diff.btw[abs(x.effect$effect) >=2], pch=19, cex=0.5, col="red")
-#points(x.effect$rab.all[sgn], x.effect$diff.btw[sgn], cex=0.7, col="blue")
-
-#plot(x.effect$diff.win, x.effect$diff.btw, pch=19, cex=0.3, col="grey",xlab="Dispersion", ylab="Difference", main="Effect")
-#points(x.effect$diff.win[abs(x.effect$effect) >=2], x.effect$diff.btw[abs(x.effect$effect) >=2], pch=19, cex=0.5, col="red")
-#points(x.effect$diff.win[sgn], x.effect$diff.btw[sgn], cex=0.7, col="blue")
-#abline(0,2, lty=2, col="grey")
-#abline(0,-2, lty=2, col="grey")
-
-# filtervec
-# by effect size
-# filtervec <- (x.all %>% dplyr::filter(effect >= 2 |
-#                          effect <= -2))
-
-# by p value
-filtervec <- (x.all %>% dplyr::filter(wi.eBH <= .05))
-filtervec <- filtervec$ko
-```
-
-### Complex Heatmap
-```{r}
-library(circlize)
-library(ComplexHeatmap)
-
-prev.kegg <- prevalencedf(ps_kegg, Pathway)
-sample_data(ps_kegg)$SludgeType3 <- str_replace_all(sample_data(ps_kegg)$SludgeType, 
-                                        c("Control"="RMITAD", 
-                                       "Treatment"="RMITAD",
-                                       "Foam"="RMITAD",
-                                          "PSTWAS"="PSTWAS", 
-                                            "Full-scale"="Full-scale") )
-sample_data(ps_kegg)$SludgeType3<- factor(sample_data(ps_kegg)$SludgeType3)
-# filter
-ps.tmp   <- subset_samples(ps_kegg, sample_data(ps_kegg)$SludgeType3 %in% c("RMITAD"))
-ps.tmp <- microbiome::transform(ps.tmp, transform = "clr")
-ps.tmp <- phyloseq::subset_taxa(ps.tmp, taxa_names(ps.tmp) %in% filtervec)
-#ps.tmp <-  prune_taxa(taxa_sums(ps.tmp) > 0, ps.tmp) # minimum reads per feature
-
-# plot
-#col_fun = colorRamp2(c(min(otu_table(ps.tmp)), mean(otu_table(ps.tmp)), max(otu_table(ps.tmp))), c("black", "steelblue", "#FCFDBFFF"))
-taxtable <- data.frame(tax_table(ps.tmp))
-colAnn <- HeatmapAnnotation(
-        Date = as.character(sample_data(ps.tmp)$Date),
-        col = list(Date = c( "2023-05-01" = "#D2A277","2023-05-15" = "#E495A5", 
-                             "2023-06-02" = "#72BB83"))
-                        )
-set.seed(1232145)
-row_ha = rowAnnotation(`KEGG pathway` = taxtable$PathwayL2, 
-                       annotation_name_gp= gpar(fontsize = 8))
-#cols <- colorspace::rainbow_hcl(length(unique(sample_data(ps.tmp)$Date)))
-#row_ano = rowAnnotation(foo = anno_block(gp = gpar(fill = 2:4)))
-
-fig <- Heatmap((otu_table(ps.tmp)), 
-        name = "Abundances", #title of legend
-        row_names_gp = gpar(fontsize = 6.5),
-        #split = sample_data(ps.tmp)$Treatment,
-       #col_fun,
-        show_column_names = TRUE,
-        show_row_names = TRUE,
-       row_labels = c(data.frame(tax_table(ps.tmp))$Pathway),
-       column_labels = c(data.frame(sample_data(ps.tmp))$SludgeType),
-       column_names_gp = gpar(fontsize = 6.5),
-       clustering_method_columns = "ward.D",
-       top_annotation = colAnn,
-       left_annotation = row_ha,
-    row_km = 1
-       )    
-       #column_split = 4
-        # Text size for row names
-fig
-png("./Figures/Sup_heatmap_kegg_metagenome.png", width = 17, height = 12,pointsize = 12,units="cm",res=300)
-draw(fig, padding = unit(c(3, 3, 2, 2), "mm"), merge_legend = TRUE) ## see right heatmap in following
-dev.off()
-# 550 x 850
-```
-
-## Supp. figure 11 Picrust volcano plot
-```{r message=FALSE, warning=FALSE}
-colshm <- c("grey", "steelblue")
-output <- readRDS("./data/ancombcoutputpicrust-09Jul24")
-psAC <- ps_pw
-psAC <-  subset_samples(psAC, sample_data(psAC)$Period %in% c("Inhibition","Recovery/Feedingpause", "Recovery/Foaming"))
-psAC <-  subset_samples(psAC, sample_data(psAC)$SludgeType %in% c("Control", "Treatment"))
-psAC <-  prune_taxa(taxa_sums(psAC) > 0, psAC)
-res_prim = output$res
-df = res_prim %>%
-    dplyr::select(taxon, contains("Treatment")) %>% 
-  dplyr::mutate('Label' = if_else(diff_TreatmentTreatment %in% c("TRUE"), taxon, NA_character_))
-taxtable <- data.frame(tax_table(psAC)) %>% 
-  rownames_to_column("taxon") 
-df <- df %>% left_join(taxtable, by = "taxon")
-
-# Overview
-df %>% 
-  group_by(diff_TreatmentTreatment) %>% 
-  summarise(n())
-
-p1 <- ggplot(data=df, aes(x=lfc_TreatmentTreatment, 
-                          y=-log10(p_TreatmentTreatment), 
-                          col = diff_TreatmentTreatment, 
-                          label=taxon)) + 
-  geom_point(alpha=0.75) + 
-  scale_color_manual("Treatment effect", values = colshm) +
-    geom_text_repel(max.overlaps = 10,show.legend = FALSE, size = 3) +
-  ylab("-log10(p value)") +
-  xlab("Log fold change") + 
-  annotate(geom = 'text', label = paste("ANCOM with bias correction (n = 24 per group, paired for digester ID)\n  Pathway abundances (centred log-ratio) ~ Treatment"), 
-             x = -Inf, y = -Inf, hjust = -0.05, vjust = -.2, size = 2.5) 
-
-ggsave(plot = p1, "./Figures/Sup_volanoplot_picrust.png", height=7.75, width=13.5, units='cm', dpi=300)
-rm(colshm)
-```
-
-Figure 12 - Metabolome PCA - is done in EcologyofFoaming_figure7
-
-## Supp. figure 13 CN
+## Supp. figure S9 CN
 ```{r message=FALSE, warning=FALSE}
 ### CN
 masterdata %>% 
@@ -1026,415 +1092,15 @@ ggsave( "./Figures/Sup_boxplot_CN.png", height=7, width=17,units='cm', dpi=600)
 str(masterdata)
 ```
 
-## Supp. figure 14 DNA (mg gCOD)
-```{r message=FALSE, warning=FALSE}
-firstdate <- "2023-04-17"  
-lastdate <- "2023-07-03"
-masterdata %>% dplyr::filter(DNA_mg_gCOD > 0 & 
-                               DNA_mg_gCOD < 5 ) %>% 
-  ggline(x = "Date",
-         y = "DNA_mg_gCOD", 
-         color = "SludgeType",
-         legend = "right",
-         add = "mean_se",
-         add.params = list(width = 1)) +
- scale_color_manual("Treatment", values = cols) +
-  theme_light() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45,  hjust=1))  + 
-  
-    scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
-         date_minor_breaks = "1 day",
-          limits = as.Date(c(firstdate, lastdate)) ) +
-
-  annotate("text",x = as.Date("2023-04-21"), y = -.1, label = "W08 ", size = 2.5) +   #Week 08
-   annotate("text",x = as.Date("2023-04-28"), y = -.1, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = -.1, label = "W10 ", size = 2.5) +   #Week 10
-   annotate("text",x = as.Date("2023-05-12"), y = -.1, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = -.1, label = "W12 ", size = 2.5) +   #Week 12
-   annotate("text",x = as.Date("2023-05-26"), y = -.1, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = -.1, label = "W14 ", size = 2.5) +   #Week 14
-   annotate("text",x = as.Date("2023-06-09"), y = -.1, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = -.1, label = "W16 ", size = 2.5) +   #Week 16
-   annotate("text",x = as.Date("2023-06-23"), y = -.1, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = -.1, label = "W18 ", size = 2.5) +    #Week 18
-  
-  
-  annotate("text",x = as.Date("2023-04-24"), y = .1, label = "Steady state", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-04-17"), xend = as.Date("2023-05-02"),
-            arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
-  
-   annotate("text",x = as.Date("2023-05-05"), y = .1, label = "Glycerol   ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-02"), xend = as.Date("2023-05-07"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-   annotate("text",x = as.Date("2023-05-14"), y = .1, label = "   Inhibition", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-07"), xend = as.Date("2023-05-22"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-  annotate("text",x = as.Date("2023-05-26"), y = .1, label = "Recovery", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-22"), xend = as.Date("2023-05-30"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-  annotate("text",x = as.Date("2023-06-03"), y = .1, label = "Foaming ", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-05-30"), xend = as.Date("2023-06-07"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-    annotate("text",x = as.Date("2023-06-10"), y = .1, label = "    Recovery", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-06-15"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-    annotate("text",x = as.Date("2023-06-24"), y = .1, label = "Steady state post foam", size = 2.5) +
-   annotate("segment", y = 0, yend = 0, x = as.Date("2023-06-07"), xend = as.Date("2023-07-03"),
-            arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
-  
-   # annotate("text",x = as.Date("2023-05-04"), y = 301, label = "Glycerol", size = 2.5) +
-    #annotate("rect",ymin =5.5, ymax = 300, xmin = as.Date("2023-05-02"), xmax = as.Date("2023-05-7"), 
-     #        fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-05-25"), y = 0.75, label = "  Paused\n  feeding", size = 2) +
-    annotate("rect", ymin = 0, ymax = 1.25,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
-             fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-06-03"), y = 0.5, label = "   Foam", size = 2) +
-    annotate("rect", ymin = 0.25, ymax = 0.75, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
-             fill = "blue", alpha = .1) +
-  ylab(expression(paste("DNA (mg gCOD"^-1*")"))) 
-
-ggsave("./Figures/Sup_lineplot_mgCOD.png", height=3, width=6.75, units='in', dpi=300)
-```
-
-## Supp. figure 15 DNA (mg gCOD)
-```{r message=FALSE, warning=FALSE}
-masterdata %>% dplyr::filter(ngmL_qb >= 0 ) %>% 
-  ggline(x = "Date",
-         y = "Shannon", 
-         color = "SludgeType",
-         legend = "right",
-         add = "mean_se",
-         add.params = list(width = 1)) +
- scale_color_manual("Treatment", values = cols) +
-  theme_light() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45,  hjust=1))  + 
-  
-    scale_x_date(date_breaks = "1 week", date_labels = "%b %d", 
-         date_minor_breaks = "1 day",
-          limits = as.Date(c(firstdate, lastdate)) ) +
-
-  annotate("text",x = as.Date("2023-04-21"), y = 2.85, label = "W08 ", size = 2.5) +   #Week 08
-   annotate("text",x = as.Date("2023-04-28"), y = 2.85, label = "W09 ", size = 2.5) +   #Week 09
-   annotate("text",x = as.Date("2023-05-05"), y = 2.85, label = "W10 ", size = 2.5) +   #Week 10
-   annotate("text",x = as.Date("2023-05-12"), y = 2.85, label = "W11 ", size = 2.5) +   #Week 11
-   annotate("text",x = as.Date("2023-05-19"), y = 2.85, label = "W12 ", size = 2.5) +   #Week 12
-   annotate("text",x = as.Date("2023-05-26"), y = 2.85, label = "W13 ", size = 2.5) +   #Week 13
-   annotate("text",x = as.Date("2023-06-02"), y = 2.85, label = "W14 ", size = 2.5) +   #Week 14
-   annotate("text",x = as.Date("2023-06-09"), y = 2.85, label = "W15 ", size = 2.5) +   #Week 15
-   annotate("text",x = as.Date("2023-06-16"), y = 2.85, label = "W16 ", size = 2.5) +   #Week 16
-   annotate("text",x = as.Date("2023-06-23"), y = 2.85, label = "W17 ", size = 2.5) +   #Week 17
-   annotate("text",x = as.Date("2023-06-30"), y = 2.85, label = "W18 ", size = 2.5) +    #Week 18
-  
-  
-  annotate("text",x = as.Date("2023-04-24"), y = 3.25, label = "Steady state", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-04-17"), xend = as.Date("2023-05-02"),
-            arrow = arrow(ends = "last", angle = 90, length = unit(.1,"cm"))) +
-  
-   annotate("text",x = as.Date("2023-05-05"), y = 3.25, label = "Glycerol   ", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-05-02"), xend = as.Date("2023-05-07"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-   annotate("text",x = as.Date("2023-05-14"), y = 3.25, label = "   Inhibition", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-05-07"), xend = as.Date("2023-05-22"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-  annotate("text",x = as.Date("2023-05-26"), y = 3.25, label = "Recovery", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-05-22"), xend = as.Date("2023-05-30"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-  annotate("text",x = as.Date("2023-06-03"), y = 3.25, label = "Foaming ", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-05-30"), xend = as.Date("2023-06-07"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-    annotate("text",x = as.Date("2023-06-10"), y = 3.25, label = "    Recovery", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-06-07"), xend = as.Date("2023-06-15"),
-            arrow = arrow(ends = "both", angle = 90, length = unit(.1,"cm"))) +
-  
-    annotate("text",x = as.Date("2023-06-24"), y = 3.25, label = "Steady state post foam", size = 2.5) +
-   annotate("segment", y =3, yend = 3, x = as.Date("2023-06-07"), xend = as.Date("2023-07-03"),
-            arrow = arrow(ends = "first", angle = 90, length = unit(.1,"cm"))) +
-  
-   # annotate("text",x = as.Date("2023-05-04"), y = 301, label = "Glycerol", size = 2.5) +
-    #annotate("rect",ymin =5.5, ymax = 300, xmin = as.Date("2023-05-02"), xmax = as.Date("2023-05-7"), 
-     #        fill = "blue", alpha = .1) +
-
-    annotate("text",x = as.Date("2023-05-25"), y = 4, label = "   Paused\n  feeding", size = 2) +
-    annotate("rect", ymin = 3, ymax = 5,  xmin = as.Date("2023-05-22"), xmax = as.Date("2023-05-29"),
-             fill = "blue", alpha = .1) +
-
-    #annotate("text",x = as.Date("2023-06-03"), y = 301, label = "Foam", size = 2) +
-  #  annotate("rect", ymin = 5.5, ymax = 125, xmin = as.Date("2023-06-01"), xmax = as.Date("2023-06-06"), 
-  #           fill = "blue", alpha = .1) +
-  ylab(expression(paste("Shannon"))) 
-
-ggsave("./Figures/Sup_lineplot_shannon.png", height=3, width=6.5, units='in', dpi=300)
-```
-
-## Supp. figure 16 Picrust2 heatmap
-```{r message=FALSE, warning=FALSE}
-library(circlize)
-library(ComplexHeatmap)
-output <- readRDS("./data/ancombcoutputpicrust-09Jul24")
-res_prim = output$res
-filtervec <- (res_prim %>% dplyr::filter(q_TreatmentTreatment <= 0.05))$taxon
-ps.tmp <- ps_pw
-ps.tmp <-  prune_taxa(taxa_sums(ps.tmp) > 10000, ps.tmp) # minimum reads per feature
-ps.tmp <-  subset_samples(ps.tmp, sample_data(ps.tmp)$Period %in% c("Inhibition","Recovery/Feedingpause", "Recovery/Foaming"))
-ps.tmp <-  subset_samples(ps.tmp, sample_data(ps.tmp)$SludgeType %in% c("Control", "Treatment"))
-ps.tmp <-  prune_taxa(taxa_sums(ps.tmp) > 0, ps.tmp) # minimum reads per feature
-ps.tmp <- microbiome::transform(ps.tmp, transform = "hellinger")
-ps.tmp <- phyloseq::subset_taxa(ps.tmp, taxa_names(ps.tmp) %in% filtervec)
-
-meta.tmp <- sample_data(ps.tmp)
-sample_data(ps.tmp)$CSTR <- str_replace_all(sample_data(ps.tmp)$AD, c("AD1"="C1", 
-                                       "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "AD_full" = "Full-scale") )
-vars <- c("CSTR", "Treatment")
-sample_data(ps.tmp) <- tidyr::unite(data.frame(sample_data(ps.tmp)), "CSTR_Treat", all_of(vars),remove = FALSE )
-
-summary(sample_data(ps.tmp)$Treatment)
-summary(sample_data(ps.tmp)$AD)
-
-# plot
-taxtable <- data.frame(tax_table(ps.tmp))
-
-colAnn <- HeatmapAnnotation(
-        `Gasflow (ml/day)` = anno_barplot(sample_data(ps.tmp)$Gasflow_mL, width = unit(4, "cm")), 
-        Digester = as.character(sample_data(ps.tmp)$Treatment),
-        col = list(Digester= c( "Control" = "#4D98AC", "Treatment" = "#985C64")
-                   ), annotation_name_gp= gpar(fontsize = 8), show_legend = FALSE
-        )
-set.seed(1232145)
-row_ha <-  HeatmapAnnotation(
-            which = c("row"),
-            `MetaCyc class` = taxtable$CLASS1, annotation_name_gp= gpar(fontsize = 8),
-            annotation_legend_param = list(`MetaCyc class` = list(ncol = 1)),
-            show_legend = TRUE
-              )
-fig <- Heatmap((otu_table(ps.tmp)), 
-        name = "Abundances", #title of legend
-        row_names_gp = gpar(fontsize = 6.5),
-        #split = sample_data(ps.tmp)$Treatment,
-       #col_fun,
-       show_heatmap_legend = FALSE,
-        show_column_names = TRUE,
-        show_row_names = TRUE,
-       row_labels = c(data.frame(tax_table(ps.tmp))$Pathway2),
-       column_labels = c(data.frame(sample_data(ps.tmp))$Date),
-       column_names_gp = gpar(fontsize = 6),
-       cluster_columns = TRUE, 
-       clustering_method_columns = "ward.D",
-       top_annotation = colAnn,
-       left_annotation = row_ha
-    #row_km = 1, column_split = 2
-       )    
-       #column_split = 4
-
-        # Text size for row names
-
-png("./Figures/Sup_heatmap_metacyc_picrust_noleg.png", width = 19, height = 20,pointsize = 12,units="cm",res=300)
-draw(fig, padding = unit(c(3, 3, 2, 7), "mm"), merge_legend = TRUE, heatmap_legend_side = c("top"),
-     annotation_legend_side = "bottom") ## see right heatmap in following
-```
-
-## Supp. figure 17 violin/heatmap filaments 16S
-### Violin
-```{r message=FALSE, warning=FALSE}
-ps.temp  <- ps.flt
-set.seed(1234)
-# summary(sample_sums(ps.temp))
-# sort(sample_sums(ps.temp))
-ps.temp <- phyloseq::rarefy_even_depth(ps.temp, sample.size = 30563, replace = FALSE)
-#ps.temp <- ps.temp %>% microbiome::transform("clr")
-#ps.temp <- microbiome::aggregate_taxa(ps.temp, level = "Genus") # faster
-ps.temp <- ps.temp %>% microbiome::transform("compositional")
-ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
-  dplyr::select(Date, SludgeType, week, Treatment, Abundance, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
-  dplyr::filter(Abundance > 0) %>% 
-  group_by(Date,SludgeType, week, Treatment,  Kingdom, Phylum, Class, Order, Family,Genus, Species) %>% 
-  summarise(Abundance = mean(Abundance) *100)  %>% unique()
-
-ps.summary_sel <- ps.summary %>% 
-  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
-                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") | 
-                                                                    str_detect(Genus, "Tetrasphaera") ) %>% 
-                    dplyr::filter(week %in% c(10, 11,12, 13, 14,15,16))
-
-p <- ggpubr::ggviolin(ps.summary_sel, x = "week", 
-                    y = "Abundance",
-                    ylab = "Abundance (%)",
-                    xlab = "Week",
-                   # facet.by = c("PMA_treat"),
-                    fill = "SludgeType") +
-                   # shape = "PMA_treat") + 
-    theme_bw() +
-    theme( panel.grid.major = element_blank(), panel.grid.minor = element_blank() ) +
-   geom_point(aes(x =week,y=Abundance, fill=SludgeType), 
-             position = position_jitterdodge(), alpha = 0.15)  +
-   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))  +
-  ggpubr::stat_compare_means(aes(x =week,y=Abundance, group=SludgeType,
-                                 label = paste0(..p.signif..)),
-                             method = "kruskal") 
 
 
-```
-
-### heatmap
-```{r}
-### heatmap of these 
-ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
-  dplyr::select(OTU, Date, SludgeType, week, Treatment, Abundance, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
-  dplyr::filter(Abundance > 0) 
-#ps.summary_sel <- ps.summary %>% 
-#  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
-#                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") ) %>% 
-#                    dplyr::filter(Period %in% c("SteadyState", "Inhibition", "Recovery/Foaming", "Recovery/Feedingpause", 
-#                                                "Glycerol"))
-ps.summary_sel <- ps.summary %>% 
-  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
-                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") | 
-                   str_detect(Genus, "Tetrasphaera") | str_detect(Genus, "Methanospirillum")) 
-
-library(ampvis2)
-ps.temp  <- ps.flt
-psobject <- ps.temp
-psobject <-   subset_samples(psobject, sample_data(psobject)$week %in% c(10, 11,12, 13,14,15,16))
-psobject <- prune_taxa(taxa_sums(psobject) >  0, psobject) #minimum reads per feature
-taxtable <- data.frame(tax_table(psobject)) 
-ASVtable <- data.frame(otu_table(psobject))
-metaobject <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-amp <- amp_load(otutable = ASVtable,
-              metadata = metaobject,
-              taxonomy = taxtable)
-filtervec <- ps.summary_sel$Genus %>% unique()
-amp <- amp %>% amp_subset_taxa( normalise = TRUE, tax_vector = filtervec )
-p1 <- amp_heatmap(amp, tax_aggregate = "Genus", tax_add = c("Family"),
-                  group_by = "week", 
-                  tax_show = 30, facet_by = "SludgeType",
-                  showRemainingTaxa = TRUE, normalise = FALSE,
-                  min_abundance = 0.001) 
-
-g <- ggarrange(p, p1, nrow = 2, labels = "AUTO")
-g
-ggsave(plot = g, "./Figures/Sup_violin_heatmap_filamen_hydrop.png", height=7, width=12, units='in', dpi=300)
-
-```
-
-## Supp. figure 18 heatmap filaments squeezemeta
-```{r}
-### ampviz heatmap 
-ps.temp <- psmg
-sample_sums(ps.temp)
-sample_data(ps.temp)$SludgeType <- factor(sample_data(ps.temp)$SludgeType , levels = c("Control","Treatment","Foam","Full-scale", "PSTWAS"))
-ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
-  dplyr::select(OTU, Date, SludgeType, week, Abundance, SuperKingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
-  dplyr::filter(Abundance > 0) 
-
-#ps.summary_sel <- ps.summary %>% 
-#  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
-#                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") ) %>% 
-#                    dplyr::filter(Period %in% c("SteadyState", "Inhibition", "Recovery/Foaming", "Recovery/Feedingpause", 
-#                                                "Glycerol"))
-ps.summary_sel <- ps.summary %>% 
-  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microthrixaceae") | str_detect(Family, "Corynebacter") | 
-                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") | 
-                   str_detect(Genus, "Tetrasphaera") | str_detect(Genus, "Methanospirillum")
-                   )
-
-library(ampvis2)
-psobject <- ps.temp
-
-#set.seed(12345)
-#psobject <- phyloseq::rarefy_even_depth(psobject, replace = FALSE)
-psobject <-   subset_samples(psobject, sample_data(psobject)$week %in% c(10, 11,12, 13,14,15,16))
-psobject <- prune_taxa(taxa_sums(psobject) >  0, psobject) #minimum reads per feature
-taxtable <- data.frame(tax_table(psobject)) 
-ASVtable <- data.frame(otu_table(psobject))
-metaobject <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-amp <- amp_load(otutable = ASVtable,
-              metadata = metaobject,
-              taxonomy = taxtable)
-filtervec <- ps.summary_sel$Genus %>% unique()
-amp <- amp %>% amp_subset_taxa( normalise = TRUE, tax_vector = filtervec )
-p1 <- amp_heatmap(amp, tax_aggregate = "Genus", tax_add = c("Family"),
-                  group_by = "week", 
-                  tax_show = 30, facet_by = "SludgeType",
-                  showRemainingTaxa = TRUE, normalise = FALSE,
-                  plot_values_size = 3,
-                  min_abundance = 0.001) 
-p1 <- p1 +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
-
-ggsave(plot = p1, "./Figures/Sup_heatmap_filamen_hydrop.png", height=15, width=25, units='cm', dpi=300)
-```
-
-## Supp. figure 19 heatmap filaments kraken2
-```{r}
-### ampviz heatmap 
-ps.temp <- pskr
-sample_sums(ps.temp)
-sample_data(ps.temp)$SludgeType <- factor(sample_data(ps.temp)$SludgeType , levels = c("Control","Treatment","Foam","Full-scale", "PSTWAS"))
-ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
-  dplyr::select(OTU, Date, SludgeType, week, Abundance, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
-  dplyr::filter(Abundance > 0) 
-
-#ps.summary_sel <- ps.summary %>% 
-#  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
-#                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") ) %>% 
-#                    dplyr::filter(Period %in% c("SteadyState", "Inhibition", "Recovery/Foaming", "Recovery/Feedingpause", 
-#                                                "Glycerol"))
-ps.summary_sel <- ps.summary %>% 
-  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microthrixaceae") | str_detect(Family, "Corynebacter") | 
-                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") )
-
-library(ampvis2)
-psobject <- ps.temp
-
-#set.seed(12345)
-#psobject <- phyloseq::rarefy_even_depth(psobject, replace = FALSE)
-psobject <-   subset_samples(psobject, sample_data(psobject)$week %in% c(10, 11,12, 13,14,15,16))
-psobject <- prune_taxa(taxa_sums(psobject) >  0, psobject) #minimum reads per feature
-taxtable <- data.frame(tax_table(psobject)) 
-ASVtable <- data.frame(otu_table(psobject))
-metaobject <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-amp <- amp_load(otutable = ASVtable,
-              metadata = metaobject,
-              taxonomy = taxtable)
-filtervec <- ps.summary_sel$Genus %>% unique()
-amp <- amp %>% amp_subset_taxa( normalise = TRUE, tax_vector = filtervec )
-p1 <- amp_heatmap(amp, tax_aggregate = "Genus", tax_add = c("Family"),
-                  group_by = "week", 
-                  tax_show = 30, facet_by = "SludgeType",
-                  showRemainingTaxa = TRUE, normalise = FALSE,
-                  plot_values_size = 3,
-                  min_abundance = 0.001) 
-p1 <- p1 +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
-
-ggsave(plot = p1, "./Figures/Sup_heatmap_filamen_hydrop_kraken.png", height=15, width=20, units='cm', dpi=300)
-```
-
-## Supp. figure 20 foam heights
+## Supp. figure S10 foam heights
 ```{r}
 firstdate <- 47  # selected periods for general manuscript
 lastdate <- 124
 
-weeky <- c(-8)
-labely <- c(8)
+weeky <- c(-30)
+labely <- c(-10)
 segmenty <- c(0)
 
 generate_vector <- function(x, y) {
@@ -1532,12 +1198,781 @@ foamdata %>%
              fill = "blue", alpha = .1) +
   
       ylab("Max foam height (mm)") +
-      xlab("Days of operation")
+      xlab("Day of operation")
 
 ggsave("./Figures/Sup_lineplot_foam_daysop.png", height=2.5, width=6, units='in', dpi=300)
 ```
 
-## Supp. figure 20 EC (not included) 
+## Supp. figure S12 phylum abund
+#### Control
+```{r message=FALSE, warning=FALSE}
+
+firstdate <- -2  # selected periods for Supplementary
+lastdate <- 166
+
+weeky <- c(-5)
+labely <- c(.05)
+segmenty <- c(0)
+
+generate_vector <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 7
+  }
+  return(result)
+}
+
+generate_vectorday <- function(x, y) {
+  result <- c()
+  while (x <= y) {
+    result <- c(result, x)
+    x <- x + 1
+  }
+  return(result)
+}
+
+ps.rel <- microbiome::aggregate_taxa(ps.flt, "Phylum")
+
+ps.rel <- ps.rel %>% 
+  microbiome::transform(transform = 'compositional')
+df <- phyloseq::psmelt(ps.rel) %>% 
+  mutate(Abundance = Abundance *100)
+
+p1 <- df %>% 
+  group_by(daysop, Kingdom, Phylum, CSTR, SludgeType) %>% 
+   summarise(value = median(Abundance)) %>% 
+    dplyr::filter(SludgeType %in% c("Control")) %>% 
+  
+  ggplot(., aes(x=daysop, y=value, fill=Phylum)) + 
+  geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
+  facet_wrap(vars(CSTR), ncol = 1) +
+  
+  scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) ) +
+  
+  ylab("Relative Abundance") +
+  theme_light() +
+ # scale_color_manual("Treatment", values = cols)  +
+  theme(
+        axis.title.x = element_blank(),
+       #axis.text.x = element_blank(),
+        axis.text.x = element_text(angle = 90,  hjust=1),
+        legend.position = "top",
+       legend.title = element_blank()
+       )   +
+
+  #  annotate("text",x = 2, y = weeky, label = "W01 ", size = 2.5) +   #Week 01
+   annotate("text",x = 9, y = weeky, label = "W02 ", size = 2.5) +   #Week 02
+#   annotate("text",x = 16, y = weeky, label = "W03 ", size = 2.5) +   #Week 03
+   annotate("text",x = 23, y = weeky, label = "W04 ", size = 2.5) +   #Week 04
+#   annotate("text",x = 30, y = weeky, label = "W05 ", size = 2.5) +   #Week 05
+   annotate("text",x = 37, y = weeky, label = "W06 ", size = 2.5) +   #Week 06
+#   annotate("text",x = 44, y = weeky, label = "W07 ", size = 2.5) +   #Week 07
+    annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+#   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+#   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+#   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+#   annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+ #  annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+#    annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+#   annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+#   annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
+  
+   annotate("text",x = 85, y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.6) +
+    annotate("rect", ymin = 0, ymax = 100,  xmin = 82, xmax = 89,
+             fill = "blue", alpha = .1) +
+  guides(fill=guide_legend(ncol=6)) + 
+  ggtitle("Control")
+
+```
+
+#### Treatment
+```{r message=FALSE, warning=FALSE}
+
+ps.rel <- microbiome::aggregate_taxa(ps.flt, "Phylum")
+
+ps.rel <- ps.rel %>% 
+  microbiome::transform(transform = 'compositional')
+df <- phyloseq::psmelt(ps.rel)  %>% 
+  mutate(Abundance = Abundance *100)
+
+p2 <- df %>% 
+  group_by(daysop, Kingdom, Phylum, CSTR, SludgeType) %>% 
+   summarise(value = median(Abundance)) %>% 
+  dplyr::filter(SludgeType %in% c("Treatment")) %>% 
+  
+  ggplot(., aes(x=daysop, y=value, fill=Phylum)) + 
+  geom_area(alpha=0.6 , linewidth=.1, colour="white", position = "stack") +
+  facet_wrap(vars(CSTR), ncol = 1) +
+  
+  scale_x_continuous(breaks = generate_vector(firstdate,lastdate),
+                      minor_breaks = generate_vectorday(firstdate,lastdate),
+               limits = c(firstdate, lastdate) ) +
+  
+  ylab("Relative Abundance") +
+  theme_light() +
+   theme(
+        axis.title.x = element_blank(), 
+        axis.title.y = element_blank(),
+         axis.text.y = element_blank(),
+        axis.text.x = element_text(angle = 90,  hjust=1),
+        legend.position = "top",
+        legend.title = element_blank()
+        )   +
+ 
+ #   annotate("text",x = 2, y = weeky, label = "W01 ", size = 2.5) +   #Week 01
+   annotate("text",x = 9, y = weeky, label = "W02 ", size = 2.5) +   #Week 02
+#   annotate("text",x = 16, y = weeky, label = "W03 ", size = 2.5) +   #Week 03
+   annotate("text",x = 23, y = weeky, label = "W04 ", size = 2.5) +   #Week 04
+#   annotate("text",x = 30, y = weeky, label = "W05 ", size = 2.5) +   #Week 05
+   annotate("text",x = 37, y = weeky, label = "W06 ", size = 2.5) +   #Week 06
+#   annotate("text",x = 44, y = weeky, label = "W07 ", size = 2.5) +   #Week 07
+    annotate("text",x = 51, y = weeky, label = "W08 ", size = 2.5) +   #Week 08
+#   annotate("text",x = 58, y = weeky, label = "W09 ", size = 2.5) +   #Week 09
+   annotate("text",x = 65, y = weeky, label = "W10 ", size = 2.5) +   #Week 10
+#   annotate("text",x = 72, y = weeky, label = "W11 ", size = 2.5) +   #Week 11
+   annotate("text",x = 79, y = weeky, label = "W12 ", size = 2.5) +   #Week 12
+#   annotate("text",x = 86, y = weeky, label = "W13 ", size = 2.5) +   #Week 13
+   annotate("text",x = 93, y = weeky, label = "W14 ", size = 2.5) +   #Week 14
+ #  annotate("text",x = 100, y = weeky, label = "W15 ", size = 2.5) +   #Week 15
+   annotate("text",x = 107, y = weeky, label = "W16 ", size = 2.5) +   #Week 16
+ #  annotate("text",x = 114, y = weeky, label = "W17 ", size = 2.5) +   #Week 17
+   annotate("text",x = 121, y = weeky, label = "W18 ", size = 2.5) +    #Week 18
+ #   annotate("text",x = 128, y = weeky, label = "W19 ", size = 2.5) +   #Week 19
+   annotate("text",x = 135, y = weeky, label = "W20 ", size = 2.5) +   #Week 20
+ #  annotate("text",x = 142, y = weeky, label = "W21 ", size = 2.5) +   #Week 21
+   annotate("text",x = 149, y = weeky, label = "W22 ", size = 2.5) +   #Week 22
+ #  annotate("text",x = 156, y = weeky, label = "W23 ", size = 2.5) +    #Week 23
+  annotate("text",x = 163, y = weeky, label = "W24 ", size = 2.5) +    #Week 24
+  
+   annotate("text",x = 85, y = 50, label = "Feeding paused", size = 4, angle = 90, alpha = 0.6) +
+    annotate("rect", ymin = 0, ymax = 100,  xmin = 82, xmax = 89,
+             fill = "blue", alpha = .1) + 
+  
+ annotate("text",x = 64, y = 50, label = "Glycerol", size = 4, angle = 90, alpha = 0.6) +
+    annotate("rect",ymin =0, ymax = 100, xmin = 62, xmax = 67, 
+            fill = "blue", alpha = .1) +
+  
+    annotate("text",x = 94, y = 50, label = "Foam observed", size = 4, angle = 90, alpha = 0.65) +
+    annotate("rect",ymin =0, ymax = 100, xmin = 93, xmax = 96, 
+            fill = "blue", alpha = .1) +
+  
+  guides(fill=guide_legend(ncol=3)) + 
+  ggtitle("Treatment")
+```
+
+### Combined
+```{r fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+g1 <- ggarrange(p1, p2, common.legend = TRUE, widths = c(0.52,0.48), legend = "top")
+g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
+
+ggsave( "./Figures/Sup_areaplot_all_phylum.pdf", height=27, width=26, units='cm', dpi=300)
+```
+
+## Supp. figure S13 Ampviz heatmaps 16S top30
+```{r message=FALSE, warning=FALSE}
+psobject <- ps.flt
+set.seed(1000)
+psobject <- phyloseq::rarefy_even_depth(psobject)
+psobject <- phyloseq::prune_samples(sample_data(psobject)$Date %in% c("2023-03-03","2023-03-15", "2023-04-12", "2023-04-26","2023-05-01",  "2023-05-15", "2023-05-24", "2023-06-02","2023-06-09","2023-06-05","2023-06-14","2023-06-28","2023-07-26","2023-08-09"), psobject)
+psobject <- phyloseq::prune_samples(sample_data(psobject)$SampleID.TSVS %notin% c("F16", "F77", "F205", "F150"), psobject)
+psobject <- phyloseq::prune_samples(sample_data(psobject)$DNATubeID %notin% c("#061", "#062","#063", "#064","#065","#066",
+                                                                              "#216", "#217","#218", "#219","#220","#221"), psobject)
+
+metadata <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+taxtable <- data.frame(tax_table(psobject))
+ASVtable <- data.frame(otu_table(psobject))
+amp <- amp_load(otutable = ASVtable,
+              metadata = metadata,
+              taxonomy = taxtable)
+p2 <- amp_heatmap(amp, tax_aggregate = "Phylum", tax_show = 30, showRemainingTaxa = TRUE, 
+                  normalise = TRUE, facet_by = "SludgeType", group_by = "daysop")
+
+
+p2 <- p2 +  theme(
+  strip.text.x = element_text(size = 8, colour = "black", angle = 90),
+  axis.text.x = element_text(size = 12)
+  )
+
+ggsave(plot = p2 , "./Figures/Sup_heatmap_v3v4midas53_all_phylum.png",  height=18, width=29, units='cm', dpi=200)
+```
+
+
+
+## Supp. figure S14 Ampviz heatmaps metagenome phyla
+```{r message=FALSE, warning=FALSE}
+library(ampvis2)
+
+# Squeezemeta as described 
+psobject <- psmg
+sample_data(psobject)$SludgeType <- factor(sample_data(psobject)$SludgeType, levels = c("Control", "Treatment", "Foam", "Full-scale", "PSTWAS"))
+#set.seed(1000)
+#psobject <- phyloseq::rarefy_even_depth(psobject)
+metadata <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+#metadata$`#OTU ID` <-  str_replace_all(metadata$`#OTU ID`, "-", ".") 
+taxtable <- data.frame(tax_table(psobject)) %>% dplyr::rename("Kingdom" = SuperKingdom)
+ASVtable <- data.frame(otu_table(psobject))
+
+amp <- amp_load(otutable = ASVtable,
+              metadata = metadata,
+              taxonomy = taxtable)
+p <- amp_heatmap(amp, tax_aggregate = "Phylum", tax_show = 30, showRemainingTaxa = TRUE, 
+                  normalise = TRUE, facet_by = "SludgeType", group_by = "daysop")
+pmg <- p +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
+
+## HMMER Predicted, 16S extracted, Midas 53
+df <- read.csv("./data/2024-06-11_arcbac_phylotabel.csv")
+df <- df %>% 
+    dplyr::rename(S561toS566_AD.AD6 = Chris.11,
+      S1001_3_4_AD1_3_4 = Chris.12,
+      S1002_5_6_AD2_5_6 = Chris.13,
+      S1147_49_50_AD1_3_4 = Chris.14,
+      S1148_51_52_AD2_5_6 = Chris.15,
+      S1154_57_58_AD2_5_6 = Chris.16,
+        F5 = Chris.01,
+        F55 = Chris.02,
+        F110 = Chris.03,
+        F124 = Chris.04,
+        F179 = Chris.05,
+          S119.full = Chris.06,
+          S370.full = Chris.07,
+          S1273.ADFull = Chris.08,
+          S1554.ADFull = Chris.09,
+          S1813.ADFull = Chris.10) 
+
+ncol(df %>% select( F5:S1154_57_58_AD2_5_6) )
+colSums(df %>% select( F5:S1154_57_58_AD2_5_6) ) 
+amp <- amp_load(otutable = df,
+                metadata = (metadata) )
+
+p <- amp_heatmap(amp, tax_aggregate = "Phylum", tax_show = 30, showRemainingTaxa = TRUE, 
+                  normalise = TRUE, group_by = "daysop", facet_by = "SludgeType") #+ ggtitle("HMMER/sintax classification") 
+phmmer.midas <- p +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90))
+
+
+g1 <- ggarrange(pmg, phmmer.midas, ncol = 1, align = "hv", labels = "AUTO")
+
+ggsave(plot = g1, "./Figures/Sup_heatmap_hmmer_squemeta_phylum_comparison.png", height=33, width=25, units='cm', dpi=200)
+
+```
+
+
+
+## Supp. figure S15 Picrust2 heatmap
+```{r message=FALSE, warning=FALSE}
+library(circlize)
+library(ComplexHeatmap)
+output <- readRDS("./data/ancombcoutputpicrust-09Jul24")
+res_prim = output$res
+filtervec <- (res_prim %>% dplyr::filter(q_TreatmentTreatment <= 0.05))$taxon
+ps.tmp <- ps_pw
+ps.tmp <-  prune_taxa(taxa_sums(ps.tmp) > 10000, ps.tmp) # minimum reads per feature
+ps.tmp <-  subset_samples(ps.tmp, sample_data(ps.tmp)$Period %in% c("Inhibition","Recovery/Feedingpause", "Recovery/Foaming"))
+ps.tmp <-  subset_samples(ps.tmp, sample_data(ps.tmp)$SludgeType %in% c("Control", "Treatment"))
+ps.tmp <-  prune_taxa(taxa_sums(ps.tmp) > 0, ps.tmp) # minimum reads per feature
+ps.tmp <- microbiome::transform(ps.tmp, transform = "hellinger")
+ps.tmp <- phyloseq::subset_taxa(ps.tmp, taxa_names(ps.tmp) %in% filtervec)
+
+meta.tmp <- sample_data(ps.tmp)
+sample_data(ps.tmp)$CSTR <- str_replace_all(sample_data(ps.tmp)$AD, c("AD1"="C1", 
+                                       "AD2"="T1", 
+                                          "AD3"="C2", 
+                                            "AD4"="C3", 
+                                              "AD5"="T2", 
+                                               "AD6"="T3",
+                                                "AD_full" = "Full-scale") )
+vars <- c("CSTR", "Treatment")
+sample_data(ps.tmp) <- tidyr::unite(data.frame(sample_data(ps.tmp)), "CSTR_Treat", all_of(vars),remove = FALSE )
+
+summary(sample_data(ps.tmp)$Treatment)
+summary(sample_data(ps.tmp)$AD)
+
+# plot
+taxtable <- data.frame(tax_table(ps.tmp))
+
+colAnn <- HeatmapAnnotation(
+        `Gasflow (ml/day)` = anno_barplot(sample_data(ps.tmp)$Gasflow_mL, width = unit(4, "cm")), 
+        Digester = as.character(sample_data(ps.tmp)$Treatment),
+        col = list(Digester= c( "Control" = "#4D98AC", "Treatment" = "#985C64")
+                   ), annotation_name_gp= gpar(fontsize = 8), show_legend = FALSE
+        )
+set.seed(1232145)
+row_ha <-  HeatmapAnnotation(
+            which = c("row"),
+            `MetaCyc class` = taxtable$CLASS1, annotation_name_gp= gpar(fontsize = 8),
+            annotation_legend_param = list(`MetaCyc class` = list(ncol = 1)),
+            show_legend = TRUE
+              )
+fig <- Heatmap((otu_table(ps.tmp)), 
+        name = "Abundances", #title of legend
+        row_names_gp = gpar(fontsize = 6.5),
+        #split = sample_data(ps.tmp)$Treatment,
+       #col_fun,
+       show_heatmap_legend = FALSE,
+        show_column_names = TRUE,
+        show_row_names = TRUE,
+       row_labels = c(data.frame(tax_table(ps.tmp))$Pathway2),
+       column_labels = c(data.frame(sample_data(ps.tmp))$daysop),
+       column_names_gp = gpar(fontsize = 6),
+       cluster_columns = TRUE, 
+       clustering_method_columns = "ward.D",
+       top_annotation = colAnn,
+       left_annotation = row_ha
+    #row_km = 1, column_split = 2
+       )    
+       #column_split = 4
+
+        # Text size for row names
+
+png("./Figures/Sup_heatmap_metacyc_picrust_noleg.png", width = 19, height = 20,pointsize = 12,units="cm",res=300)
+draw(fig, padding = unit(c(3, 3, 2, 7), "mm"), merge_legend = TRUE, heatmap_legend_side = c("top"),
+     annotation_legend_side = "bottom") ## see right heatmap in following
+```
+
+## Supp. figure S16 - Metabolome PCA - is done in EcologyofFoaming_figure7
+
+## Supp. figure S17 Picrust volcano plot
+```{r message=FALSE, warning=FALSE}
+colshm <- c("grey", "steelblue")
+output <- readRDS("./data/ancombcoutputpicrust-09Jul24")
+psAC <- ps_pw
+psAC <-  subset_samples(psAC, sample_data(psAC)$Period %in% c("Inhibition","Recovery/Feedingpause", "Recovery/Foaming"))
+psAC <-  subset_samples(psAC, sample_data(psAC)$SludgeType %in% c("Control", "Treatment"))
+psAC <-  prune_taxa(taxa_sums(psAC) > 0, psAC)
+res_prim = output$res
+df = res_prim %>%
+    dplyr::select(taxon, contains("Treatment")) %>% 
+  dplyr::mutate('Label' = if_else(diff_TreatmentTreatment %in% c("TRUE"), taxon, NA_character_))
+taxtable <- data.frame(tax_table(psAC)) %>% 
+  rownames_to_column("taxon") 
+df <- df %>% left_join(taxtable, by = "taxon")
+
+# Overview
+df %>% 
+  group_by(diff_TreatmentTreatment) %>% 
+  summarise(n())
+
+p1 <- ggplot(data=df, aes(x=lfc_TreatmentTreatment, 
+                          y=-log10(p_TreatmentTreatment), 
+                          col = diff_TreatmentTreatment, 
+                          label=taxon)) + 
+  geom_point(alpha=0.75) + 
+  scale_color_manual("Treatment effect", values = colshm) +
+    geom_text_repel(max.overlaps = 10,show.legend = FALSE, size = 3) +
+  ylab("-log10(p value)") +
+  xlab("Log fold change") + 
+  annotate(geom = 'text', label = paste("ANCOM with bias correction (n = 24 per group, paired for digester ID)\n  Pathway abundances (centred log-ratio) ~ Treatment"), 
+             x = -Inf, y = -Inf, hjust = -0.05, vjust = -.2, size = 2.5) 
+
+ggsave(plot = p1, "./Figures/Sup_volanoplot_picrust.png", height=7.75, width=13.5, units='cm', dpi=300)
+rm(colshm)
+```
+
+
+## Supp. figure S18 Kegg pathways
+
+### Aldex and create filtervec
+```{r message=FALSE, warning=FALSE}
+library(ALDEx2)
+# Filter out full-scale AD
+taxtable <- data.frame(tax_table(ps_kegg))
+sample_data(ps_kegg)$SludgeType3 <- str_replace_all(sample_data(ps_kegg)$SludgeType, 
+                                        c("Control"="RMITAD", 
+                                       "Treatment"="RMITAD",
+                                       "Foam"="RMITAD",
+                                          "PSTWAS"="PSTWAS", 
+                                            "Full-scale"="Full-scale") )
+sample_data(ps_kegg)$SludgeType4 <- str_replace_all(sample_data(ps_kegg)$SludgeType, 
+                                        c("Control"="Control", 
+                                       "Treatment"="Treatment",
+                                       "Foam"="Treatment",
+                                          "PSTWAS"="PSTWAS", 
+                                            "Full-scale"="Full-scale") )
+
+ps.tmp   <- subset_samples(ps_kegg, sample_data(ps_kegg)$SludgeType3 %in% c("RMITAD"))
+ps.tmp  = subset_taxa(ps.tmp, PathwayL1 %notin% c("Human Diseases", "Organismal Systems"))
+ps.tmp   <-  prune_taxa(taxa_sums(ps.tmp) >= 100, ps.tmp) # minimum reads per feature
+prev.kegg <- prevalencedf(ps.tmp , Pathway)
+
+abun <- data.frame(phyloseq::otu_table(ps.tmp))
+conds <- as.character(sample_data(ps.tmp)$SludgeType4)
+summary(as.factor(conds))
+x <- aldex.clr(abun, conds, mc.samples=1000, denom="all",
+           verbose = TRUE)
+x.tt <- aldex.ttest(x, paired.test=FALSE, verbose=FALSE)
+x.effect <- aldex.effect(x, CI=T, verbose=FALSE)
+x.all <- data.frame(x.tt,x.effect) %>% rownames_to_column("ko")
+png("./Figures/Sup_aldex2.png", width = 14, height = 12,pointsize = 12,units="cm",res=300)
+aldex.plot(x.all, type="MA", test="wilcox")
+dev.off()
+#sgn <- sign(x.effect$effect.low) == sign(x.effect$effect.high)
+
+#par(mfrow=c(1,2))
+#plot(x.effect$rab.all, x.effect$diff.btw, pch=19, cex=0.3, col="grey", xlab="Abundance", ylab="Difference", main="Bland-Altman")
+#points(x.effect$rab.all[abs(x.effect$effect) >=2], x.effect$diff.btw[abs(x.effect$effect) >=2], pch=19, cex=0.5, col="red")
+#points(x.effect$rab.all[sgn], x.effect$diff.btw[sgn], cex=0.7, col="blue")
+
+#plot(x.effect$diff.win, x.effect$diff.btw, pch=19, cex=0.3, col="grey",xlab="Dispersion", ylab="Difference", main="Effect")
+#points(x.effect$diff.win[abs(x.effect$effect) >=2], x.effect$diff.btw[abs(x.effect$effect) >=2], pch=19, cex=0.5, col="red")
+#points(x.effect$diff.win[sgn], x.effect$diff.btw[sgn], cex=0.7, col="blue")
+#abline(0,2, lty=2, col="grey")
+#abline(0,-2, lty=2, col="grey")
+
+# filtervec
+# by effect size
+# filtervec <- (x.all %>% dplyr::filter(effect >= 2 |
+#                          effect <= -2))
+
+# by p value
+filtervec <- (x.all %>% dplyr::filter(wi.eBH <= .05))
+filtervec <- filtervec$ko
+```
+
+### Complex Heatmap
+```{r}
+library(circlize)
+library(ComplexHeatmap)
+
+prev.kegg <- prevalencedf(ps_kegg, Pathway)
+sample_data(ps_kegg)$SludgeType3 <- str_replace_all(sample_data(ps_kegg)$SludgeType, 
+                                        c("Control"="RMITAD", 
+                                       "Treatment"="RMITAD",
+                                       "Foam"="RMITAD",
+                                          "PSTWAS"="PSTWAS", 
+                                            "Full-scale"="Full-scale") )
+sample_data(ps_kegg)$SludgeType3<- factor(sample_data(ps_kegg)$SludgeType3)
+# filter
+ps.tmp   <- subset_samples(ps_kegg, sample_data(ps_kegg)$SludgeType3 %in% c("RMITAD"))
+ps.tmp <- microbiome::transform(ps.tmp, transform = "clr")
+ps.tmp <- phyloseq::subset_taxa(ps.tmp, taxa_names(ps.tmp) %in% filtervec)
+#ps.tmp <-  prune_taxa(taxa_sums(ps.tmp) > 0, ps.tmp) # minimum reads per feature
+
+# plot
+#col_fun = colorRamp2(c(min(otu_table(ps.tmp)), mean(otu_table(ps.tmp)), max(otu_table(ps.tmp))), c("black", "steelblue", "#FCFDBFFF"))
+taxtable <- data.frame(tax_table(ps.tmp))
+colAnn <- HeatmapAnnotation(
+        #Date = as.character(sample_data(ps.tmp)$Date),
+        `Day of operation` = as.character(sample_data(ps.tmp)$daysop),
+        col = list(`Day of operation` = c( "61" = "#D2A277","75" = "#E495A5", 
+                             "93" = "#72BB83"))
+                        )
+set.seed(1232145)
+row_ha = rowAnnotation(`KEGG pathway` = taxtable$PathwayL2, 
+                       annotation_name_gp= gpar(fontsize = 8))
+#cols <- colorspace::rainbow_hcl(length(unique(sample_data(ps.tmp)$Date)))
+#row_ano = rowAnnotation(foo = anno_block(gp = gpar(fill = 2:4)))
+
+fig <- Heatmap((otu_table(ps.tmp)), 
+        name = "Abundances", #title of legend
+        row_names_gp = gpar(fontsize = 6.5),
+        #split = sample_data(ps.tmp)$Treatment,
+       #col_fun,
+        show_column_names = TRUE,
+        show_row_names = TRUE,
+       row_labels = c(data.frame(tax_table(ps.tmp))$Pathway),
+       column_labels = c(data.frame(sample_data(ps.tmp))$SludgeType),
+       column_names_gp = gpar(fontsize = 6.5),
+       clustering_method_columns = "ward.D",
+       top_annotation = colAnn,
+       left_annotation = row_ha,
+    row_km = 1
+       )    
+       #column_split = 4
+        # Text size for row names
+fig
+png("./Figures/Sup_heatmap_kegg_metagenome.png", width = 17, height = 12,pointsize = 12,units="cm",res=300)
+draw(fig, padding = unit(c(3, 3, 2, 2), "mm"), merge_legend = TRUE) ## see right heatmap in following
+dev.off()
+# 550 x 850
+```
+
+
+
+## Supp. figure S19 violin/heatmap filaments 16S
+### Violin
+```{r message=FALSE, warning=FALSE}
+ps.temp  <- ps.flt
+set.seed(1234)
+# summary(sample_sums(ps.temp))
+# sort(sample_sums(ps.temp))
+ps.temp <- phyloseq::rarefy_even_depth(ps.temp, sample.size = 30563, replace = FALSE)
+#ps.temp <- ps.temp %>% microbiome::transform("clr")
+#ps.temp <- microbiome::aggregate_taxa(ps.temp, level = "Genus") # faster
+ps.temp <- ps.temp %>% microbiome::transform("compositional")
+ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
+  dplyr::select(Date, SludgeType, week, Treatment, Abundance, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
+  dplyr::filter(Abundance > 0) %>% 
+  group_by(Date,SludgeType, week, Treatment,  Kingdom, Phylum, Class, Order, Family,Genus, Species) %>% 
+  summarise(Abundance = mean(Abundance) *100)  %>% unique()
+
+ps.summary_sel <- ps.summary %>% 
+  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
+                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") | 
+                                                                    str_detect(Genus, "Tetrasphaera") ) %>% 
+                    dplyr::filter(week %in% c(10, 11,12, 13, 14,15,16))
+
+p <- ggpubr::ggviolin(ps.summary_sel, x = "week", 
+                    y = "Abundance",
+                    ylab = "Abundance (%)",
+                    xlab = "Week",
+                   # facet.by = c("PMA_treat"),
+                    fill = "SludgeType") +
+                   # shape = "PMA_treat") + 
+    theme_bw() +
+  scale_fill_manual("Sample type",values = cols, labels = c("Control CSTR", "Treatment CSTR", "Foam", "Full-scale CSTR", "PS/TWAS")) +
+    theme( panel.grid.major = element_blank(), panel.grid.minor = element_blank() ) +
+   geom_point(aes(x =week,y=Abundance, fill=SludgeType), 
+             position = position_jitterdodge(), alpha = 0.15)  +
+   theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 12))  +
+  ggpubr::stat_compare_means(aes(x =week,y=Abundance, group=SludgeType,
+                                 label = paste0(..p.signif..)),
+                             method = "kruskal") 
+
+
+```
+
+### heatmap
+```{r}
+### heatmap of these 
+ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
+  dplyr::select(OTU, Date, SludgeType, week, Treatment, Abundance, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
+  dplyr::filter(Abundance > 0) 
+#ps.summary_sel <- ps.summary %>% 
+#  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
+#                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") ) %>% 
+#                    dplyr::filter(Period %in% c("SteadyState", "Inhibition", "Recovery/Foaming", "Recovery/Feedingpause", 
+#                                                "Glycerol"))
+ps.summary_sel <- ps.summary %>% 
+  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
+                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") | 
+                   str_detect(Genus, "Tetrasphaera") | str_detect(Genus, "Methanospirillum")) 
+
+library(ampvis2)
+ps.temp  <- ps.flt
+psobject <- ps.temp
+psobject <-   subset_samples(psobject, sample_data(psobject)$week %in% c(10, 11,12, 13,14,15,16))
+psobject <- prune_taxa(taxa_sums(psobject) >  0, psobject) #minimum reads per feature
+taxtable <- data.frame(tax_table(psobject)) 
+ASVtable <- data.frame(otu_table(psobject))
+metaobject <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+amp <- amp_load(otutable = ASVtable,
+              metadata = metaobject,
+              taxonomy = taxtable)
+filtervec <- ps.summary_sel$Genus %>% unique()
+amp <- amp %>% amp_subset_taxa( normalise = TRUE, tax_vector = filtervec )
+p1 <- amp_heatmap(amp, tax_aggregate = "Genus", tax_add = c("Family"),
+                  group_by = "week", 
+                  tax_show = 30, facet_by = "SludgeType",
+                  showRemainingTaxa = TRUE, normalise = FALSE,
+                  min_abundance = 0.001) +
+  theme(axis.text.x = element_text(size = 12))
+
+g <- ggarrange(p, p1, nrow = 2, labels = "AUTO")
+g
+ggsave(plot = g, "./Figures/Sup_violin_heatmap_filamen_hydrop.png", height=7, width=12, units='in', dpi=300)
+
+```
+
+
+
+## Supp. figure S20 heatmap filaments squeezemeta
+```{r}
+### ampviz heatmap 
+ps.temp <- psmg
+sample_sums(ps.temp)
+sample_data(ps.temp)$SludgeType <- factor(sample_data(ps.temp)$SludgeType , levels = c("Control","Treatment","Foam","Full-scale", "PSTWAS"))
+ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
+  dplyr::select(OTU, Date, SludgeType, week, Abundance, SuperKingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
+  dplyr::filter(Abundance > 0) 
+
+#ps.summary_sel <- ps.summary %>% 
+#  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
+#                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") ) %>% 
+#                    dplyr::filter(Period %in% c("SteadyState", "Inhibition", "Recovery/Foaming", "Recovery/Feedingpause", 
+#                                                "Glycerol"))
+ps.summary_sel <- ps.summary %>% 
+  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microthrixaceae") | str_detect(Family, "Corynebacter") | 
+                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") | 
+                   str_detect(Genus, "Tetrasphaera") | str_detect(Genus, "Methanospirillum")
+                   )
+
+library(ampvis2)
+psobject <- ps.temp
+
+#set.seed(12345)
+#psobject <- phyloseq::rarefy_even_depth(psobject, replace = FALSE)
+psobject <-   subset_samples(psobject, sample_data(psobject)$week %in% c(10, 11,12, 13,14,15,16))
+psobject <- prune_taxa(taxa_sums(psobject) >  0, psobject) #minimum reads per feature
+taxtable <- data.frame(tax_table(psobject)) 
+ASVtable <- data.frame(otu_table(psobject))
+metaobject <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+amp <- amp_load(otutable = ASVtable,
+              metadata = metaobject,
+              taxonomy = taxtable)
+filtervec <- ps.summary_sel$Genus %>% unique()
+amp <- amp %>% amp_subset_taxa( normalise = TRUE, tax_vector = filtervec )
+p1 <- amp_heatmap(amp, tax_aggregate = "Genus", tax_add = c("Family"),
+                  group_by = "daysop", 
+                  tax_show = 30, facet_by = "SludgeType",
+                  showRemainingTaxa = TRUE, normalise = FALSE,
+                  plot_values_size = 3,
+                  min_abundance = 0.001) 
+p1 <- p1 +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90),
+                  axis.text.x = element_text(size = 13))
+
+ggsave(plot = p1, "./Figures/Sup_heatmap_filamen_hydrop.png", height=15, width=25, units='cm', dpi=300)
+```
+
+
+## Supp. figure S21 heatmap filaments kraken2
+```{r}
+### ampviz heatmap 
+ps.temp <- pskr
+sample_sums(ps.temp)
+sample_data(ps.temp)$SludgeType <- factor(sample_data(ps.temp)$SludgeType , levels = c("Control","Treatment","Foam","Full-scale", "PSTWAS"))
+ps.summary <- ps.temp  %>% phyloseq::psmelt() %>% 
+  dplyr::select(OTU, Date, SludgeType, week, Abundance, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% 
+  dplyr::filter(Abundance > 0) 
+
+#ps.summary_sel <- ps.summary %>% 
+#  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microtrichaceae") | str_detect(Family, "Corynebacter") | 
+#                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") ) %>% 
+#                    dplyr::filter(Period %in% c("SteadyState", "Inhibition", "Recovery/Foaming", "Recovery/Feedingpause", 
+#                                                "Glycerol"))
+ps.summary_sel <- ps.summary %>% 
+  dplyr::filter( str_detect(Family, "Nocard") | str_detect(Family, "Microthrixaceae") | str_detect(Family, "Corynebacter") | 
+                   str_detect(Family, "Mycobacter")  | str_detect(Family, "Tsukamurellaceae") )
+
+library(ampvis2)
+psobject <- ps.temp
+
+#set.seed(12345)
+#psobject <- phyloseq::rarefy_even_depth(psobject, replace = FALSE)
+psobject <-   subset_samples(psobject, sample_data(psobject)$week %in% c(10, 11,12, 13,14,15,16))
+psobject <- prune_taxa(taxa_sums(psobject) >  0, psobject) #minimum reads per feature
+taxtable <- data.frame(tax_table(psobject)) 
+ASVtable <- data.frame(otu_table(psobject))
+metaobject <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+amp <- amp_load(otutable = ASVtable,
+              metadata = metaobject,
+              taxonomy = taxtable)
+filtervec <- ps.summary_sel$Genus %>% unique()
+amp <- amp %>% amp_subset_taxa( normalise = TRUE, tax_vector = filtervec )
+p1 <- amp_heatmap(amp, tax_aggregate = "Genus", tax_add = c("Family"),
+                  group_by = "daysop", 
+                  tax_show = 30, facet_by = "SludgeType",
+                  showRemainingTaxa = TRUE, normalise = FALSE,
+                  plot_values_size = 3,
+                  min_abundance = 0.001) 
+p1 <- p1 +  theme(strip.text.x = element_text(size = 8, colour = "black", angle = 90),
+                  axis.text.x = element_text(size = 13))
+
+ggsave(plot = p1, "./Figures/Sup_heatmap_filamen_hydrop_kraken.png", height=15, width=20, units='cm', dpi=300)
+```
+
+
+## Supp. figure S22 top 30 species Kraken2/Bracken
+```{r}
+psobject <- pskr
+psobject <- phyloseq::subset_taxa(psobject, Kingdom %in% c("Archaea", "Bacteria"))
+psobject <- prune_taxa(taxa_sums(psobject) > 0, psobject)
+set.seed(1000)
+psobject <- phyloseq::rarefy_even_depth(psobject)
+metaobject <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+#metadata$`#OTU ID` <-  str_replace_all(metadata$`#OTU ID`, "-", ".") 
+taxtable <- data.frame(tax_table(psobject)) 
+ASVtable <- data.frame(otu_table(psobject))
+
+amp <- amp_load(otutable = ASVtable,
+              metadata = metaobject,
+              taxonomy = taxtable)
+
+p1 <- amp_heatmap(amp, tax_aggregate = "Species", tax_add = c("Phylum"), tax_show = 30, showRemainingTaxa = TRUE, normalise = FALSE, group_by = "SludgeType2")
+p2 <- amp_heatmap(amp, tax_aggregate = "Species", tax_add = c("Phylum"), tax_show = 30, showRemainingTaxa = TRUE, normalise = TRUE, 
+                  group_by = "daysop", facet_by = "SludgeType") +
+  theme(
+    axis.text.x = element_text(size = 13)
+  )
+#g2 <- ggarrange(p1, p2)
+p2
+# sum(taxa_sums(psobject)) #15,219,740 reads
+# 4,220,112 reads remaining
+# sum(taxa_sums(psobject)) - 4220112 # 10999628 reads represented in figure
+# 10999628 / 15219740 # 72.3% 
+
+# sum(taxa_sums(psobject)) #9,930,576 23 July 24, including PSTWAS, full-scale, rarefied
+# 1982212 remaining
+# sum(taxa_sums(psobject)) - 1982212 #7948364 reads represented in figure
+# 7948364 /  sum(taxa_sums(psobject)) #80%
+
+ggsave(plot = p2, "./Figures/Sup_heatmap_kraken_RMITADs.png", height=15, width=31, units='cm', dpi=300)
+```
+
+## Supp. figure S23 top 30 species
+```{r}
+ps.onp <- ps.onp.ncbi.kraken
+#summary(sample_sums(ps.onp))
+set.seed(1000)
+psobject <- phyloseq::rarefy_even_depth(ps.onp, replace = TRUE)
+# ps.onp.ncbi (minimap) phyloseq-class experiment-level object
+# otu_table()   OTU Table:         [ 4866 taxa and 8 samples ]
+# sample_data() Sample Data:       [ 8 samples by 19 sample variables ]
+# tax_table()   Taxonomy Table:    [ 4866 taxa by 8 taxonomic ranks ]
+
+#ps.onp.ncbi.kraken - phyloseq-class experiment-level object
+#otu_table()   OTU Table:         [ 5166 taxa and 8 samples ]
+#sample_data() Sample Data:       [ 8 samples by 19 sample variables ]
+#tax_table()   Taxonomy Table:    [ 5166 taxa by 8 taxonomic ranks ]
+
+#ps.onp.st8 (kraken) - phyloseq-class experiment-level object
+#otu_table()   OTU Table:         [ 2472 taxa and 8 samples ]
+#sample_data() Sample Data:       [ 8 samples by 19 sample variables ]
+#tax_table()   Taxonomy Table:    [ 2472 taxa by 8 taxonomic ranks ]
+
+taxtable <- data.frame(tax_table(psobject)) 
+ASVtable <- data.frame(otu_table(psobject))
+metaobject <- data.frame(sample_data(psobject)) %>% 
+  rownames_to_column("#OTU ID") 
+
+metaobject$Sample_name <- str_replace_all(metaobject$Sample_name, c("CSTR1"="C1", 
+                                       "CSTR2"="T1", 
+                                          "CSTR3"="C2", 
+                                            "CSTR4"="C3", 
+                                              "CSTR5"="T2", 
+                                               "CSTR6"="T3") )
+
+amp <- amp_load(otutable = ASVtable,
+              metadata = metaobject,
+              taxonomy = taxtable) 
+#p1 <- amp_heatmap(amp, tax_aggregate = "Genus", group_by = "SludgeType", tax_show = 30, showRemainingTaxa = TRUE, normalise = FALSE)
+
+p <- amp_heatmap(amp, tax_aggregate = "Species", 
+                  tax_add = c("Phylum"), 
+                  facet_by = "SampleType",
+                  group_by = "Sample_name", 
+                  plot_values_size = 3,
+                  tax_show = 50, showRemainingTaxa = TRUE, normalise = TRUE) 
+
+#ggsave(polot = p, ggsave("./Figures/heatmap_16SFL.png", height=22, width=22, units='cm', dpi=300))
+```
+
+## Supp. figure  EC (not included) 
 ```{r}
 firstdate <- 47  # selected periods for general manuscript
 lastdate <- 124
@@ -1565,7 +2000,7 @@ generate_vectorday <- function(x, y) {
 }
 
 
-foamdata %>% 
+p <- foamdata %>% 
   dplyr::filter(SludgeType %notin% c("Full-scale")) %>%   # filter columns out
   ggline(x = "DayofOp",
          y = "EC", 
@@ -1641,87 +2076,8 @@ foamdata %>%
              fill = "blue", alpha = .1) +
   
       ylab("EC (S/cm)") +
-      xlab("Days of operation")
+      xlab("Day of operation")
 
 ggsave("./Figures/Sup_lineplot_ec_daysop.png", height=2.5, width=6, units='in', dpi=300)
-```
-
-
-
-## Supp. figure 21 top 30 species
-```{r}
-psobject <- pskr
-psobject <- phyloseq::subset_taxa(psobject, Kingdom %in% c("Archaea", "Bacteria"))
-psobject <- prune_taxa(taxa_sums(psobject) > 0, psobject)
-set.seed(1000)
-psobject <- phyloseq::rarefy_even_depth(psobject)
-metaobject <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-#metadata$`#OTU ID` <-  str_replace_all(metadata$`#OTU ID`, "-", ".") 
-taxtable <- data.frame(tax_table(psobject)) 
-ASVtable <- data.frame(otu_table(psobject))
-
-amp <- amp_load(otutable = ASVtable,
-              metadata = metaobject,
-              taxonomy = taxtable)
-
-p1 <- amp_heatmap(amp, tax_aggregate = "Species", tax_add = c("Phylum"), tax_show = 30, showRemainingTaxa = TRUE, normalise = FALSE, group_by = "SludgeType2")
-p2 <- amp_heatmap(amp, tax_aggregate = "Species", tax_add = c("Phylum"), tax_show = 30, showRemainingTaxa = TRUE, normalise = TRUE, 
-                  group_by = "Date", facet_by = "SludgeType")
-#g2 <- ggarrange(p1, p2)
-p2
-# sum(taxa_sums(psobject)) #15,219,740 reads
-# 4,220,112 reads remaining
-# sum(taxa_sums(psobject)) - 4220112 # 10999628 reads represented in figure
-# 10999628 / 15219740 # 72.3% 
-
-# sum(taxa_sums(psobject)) #9,930,576 23 July 24, including PSTWAS, full-scale, rarefied
-# 1982212 remaining
-# sum(taxa_sums(psobject)) - 1982212 #7948364 reads represented in figure
-# 7948364 /  sum(taxa_sums(psobject)) #80%
-
-ggsave(plot = p2, "./Figures/Sup_heatmap_kraken_RMITADs.png", height=15, width=31, units='cm', dpi=300)
-```
-
-## Supp. figure 22 top 30 species
-```{r}
-ps.onp <- ps.onp.ncbi.kraken
-summary(sample_sums(ps.onp))
-#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#  38374   60696  120542  118453  178876  197529 
-set.seed(1000)
-psobject <- phyloseq::rarefy_even_depth(ps.onp, replace = TRUE)
-# ps.onp.ncbi (minimap) phyloseq-class experiment-level object
-# otu_table()   OTU Table:         [ 4866 taxa and 8 samples ]
-# sample_data() Sample Data:       [ 8 samples by 19 sample variables ]
-# tax_table()   Taxonomy Table:    [ 4866 taxa by 8 taxonomic ranks ]
-
-#ps.onp.ncbi.kraken - phyloseq-class experiment-level object
-#otu_table()   OTU Table:         [ 5166 taxa and 8 samples ]
-#sample_data() Sample Data:       [ 8 samples by 19 sample variables ]
-#tax_table()   Taxonomy Table:    [ 5166 taxa by 8 taxonomic ranks ]
-
-#ps.onp.st8 (kraken) - phyloseq-class experiment-level object
-#otu_table()   OTU Table:         [ 2472 taxa and 8 samples ]
-#sample_data() Sample Data:       [ 8 samples by 19 sample variables ]
-#tax_table()   Taxonomy Table:    [ 2472 taxa by 8 taxonomic ranks ]
-
-taxtable <- data.frame(tax_table(psobject)) 
-ASVtable <- data.frame(otu_table(psobject))
-metaobject <- data.frame(sample_data(psobject)) %>% 
-  rownames_to_column("#OTU ID") 
-
-amp <- amp_load(otutable = ASVtable,
-              metadata = metaobject,
-              taxonomy = taxtable) 
-#p1 <- amp_heatmap(amp, tax_aggregate = "Genus", group_by = "SludgeType", tax_show = 30, showRemainingTaxa = TRUE, normalise = FALSE)
-
-p <- amp_heatmap(amp, tax_aggregate = "Species", 
-                  tax_add = c("Phylum"), 
-                  facet_by = "SampleType",
-                  group_by = "Sample_name", 
-                  plot_values_size = 3,
-                  tax_show = 50, showRemainingTaxa = TRUE, normalise = TRUE) 
-ggsave(polot = p, ggsave("./Figures/heatmap_16SFL.png", height=22, width=22, units='cm', dpi=300))
 ```
 

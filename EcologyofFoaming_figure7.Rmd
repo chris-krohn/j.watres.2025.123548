@@ -1,6 +1,6 @@
 ---
 title: Ecology of foam establishment during anaerobic digestion of wastewater sludge
-  following process disturbance - Figures 7 and S12 (metabolome)
+  following process disturbance - Figure 8
 output:
   html_document:
     df_print: paged
@@ -18,18 +18,22 @@ library(ggpubr)
 library(lubridate)
 library(ggrepel)
 library(phyloseq)
+library(ggtreeExtra)
+library(ggtree)
+library(ggnewscale)
 `%notin%` = Negate(`%in%`)
 # Prevalence table function
 # get overview of abundances, mean prevalence is the mean 'appearance' of ASVs of the taxon across all samples
 prevalencedf <- dget("./custom-functions/myprevalencetablefunction.R")
 pca_helper <- dget("./custom-functions/pca_helper.R")
+mytreefunction <- dget("./custom-functions/mytreefunction_simple.R")
 startoperation <- ymd("2023-03-01")
 cols <- c("#4D98AC", "#985C64", "#ff0000", "purple", "#C4A484")
 names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD MASTERDATA
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("./data/masterdataProject1C_May24.csv")
+masterdata <- read.csv("./data/masterdataProject1C_Jan25.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -40,303 +44,220 @@ masterdata$Period <- factor(masterdata$Period, levels = c("Converging", "SteadyS
 masterdata <- masterdata %>% 
 mutate(across(Observed:pielou_ev, ~as.numeric(.)))
 
-## METADATA SUBSET FOR PHLOSEQ
+
+## TREE DATA
+# BIN ABUNDANCES FOR PHYLOSEQ 
+bindata <- data.frame(read_tsv("./data/18.1CRMITAD.bintableforR.tsv"))
+tpm <- bindata %>% dplyr::select(`Bin.ID`, Completeness, Contamination, starts_with("TPM")) %>% column_to_rownames("Bin.ID")
+completnessdf <- tpm %>% dplyr::select(Completeness, Contamination)
+completnessdf <- completnessdf %>% 
+  mutate(Quality = case_when((Completeness > 90 & Contamination < 5) ~ "High",
+                             (Completeness > 50 & Contamination < 10) ~ "Medium",
+                             .default = "Low"))
+completnessdf$Quality <- factor(completnessdf$Quality, levels = c("Low","Medium","High"))
+tpm <- tpm %>%  dplyr::rename(S561toS566_AD.AD6 = TPM.Chris_11.S561toS566_AD.AD6,
+                           S1001_3_4_AD1_3_4 = TPM.Chris_12.S1001_3_4_AD1_3_4,
+                           S1002_5_6_AD2_5_6 = TPM.Chris_13.S1002_5_6_AD2_5_6,
+                           S1147_49_50_AD1_3_4 = TPM.Chris_14.S1147_49_50_AD1_3_4,
+                           S1148_51_52_AD2_5_6 = TPM.Chris_15.S1148_51_52_AD2_5_6,
+                           S1154_57_58_AD2_5_6 = TPM.Chris_16.S1154_57_58_AD2_5_6) %>% 
+                dplyr::select(-Completeness)
+
+taxa <-  bindata %>% dplyr::select(`Bin.ID`, TaxGTDB)  %>% 
+  separate(TaxGTDB, sep=";", c("Kingdom","Phylum","Class","Order","Family","Genus","Species")) %>% column_to_rownames("Bin.ID")
+taxa$Kingdom <-  str_replace_all(taxa$Kingdom, "d__", "")
+taxa$Phylum <-  str_replace_all(taxa$Phylum, "p__", "") 
+taxa$Class <-  str_replace_all(taxa$Class, "c__", "") 
+taxa$Order   <-  str_replace_all(taxa$Order, "o__", "") 
+taxa$Family <-  str_replace_all(taxa$Family, "f__", "") 
+taxa$Genus <-  str_replace_all(taxa$Genus, "g__", "") 
+taxa$Species <-  str_replace_all(taxa$Species, "s__", "") 
+taxa[taxa == ""] <- NA
+
+## TREE FILE FOR PHYLOSEQ
+tree <- ape::read.tree("./data/1CRMITAD.nw")
+old <- data.frame(tree$tip.label) %>% arrange(desc(tree.tip.label))
+old$tip.label2 <- substr(old$tree.tip.label, start = 1, stop = 12)
+new <- data.frame(rownames(taxa)) %>% arrange(desc(rownames.taxa.))
+new$tip.label2 <- substr(new$rownames.taxa., start = 1, stop = 12)
+tips <- old %>% left_join(new, by = "tip.label2") %>% dplyr::rename(old = "tree.tip.label", new = "rownames.taxa.")
+tree$tip.label[match(tips$old, tree$tip.label)] <- tips$new
+
+tiplabeldf <- taxa %>%  mutate(Label = coalesce(Species, Genus, Family, Order, Class, Phylum, Kingdom)) %>% rownames_to_column("ID") %>% 
+  filter(ID %in% c(tips$new)) 
+#tiplabeldf <- tiplabeldf %>% dplyr::select(ID, Phylum, Label) %>% tidyr::unite(col = "Label", sep=";", Phylum:Label)
+tiplabeldf <- tiplabeldf %>% dplyr::select(ID, Label) 
+#taxa <- taxa %>% filter(Phylum != "")  # remove one bin without classification (Bacteria)
+rm(new, old, tips)
+
+
+## METADATA SUBSET FOR PHYLOSEQ
 # merge individual samples into the pooled samples - mean values
 df <- masterdata %>% 
-   as_tibble() %>% dplyr::filter(SampleID.CHN %in% c("S567_AD1", "S568_AD2", "S569_AD3","S570_AD4","S571_AD5","S572_AD6"
-                                                     )) %>% column_to_rownames("SampleID.CHN") 
-df <- data.frame(df %>% group_by(Date, Period ) %>% summarise_each(funs(mean)))
-rownames(df) <- c("S567toS572_AD1.6")
-df$AD <- c("AD1.2.3.4.5.6")
-df$Treatment <- c("Control")
+   as_tibble() %>% dplyr::filter(SampleID.DNA %in% c("S1001_AD1", "S1003_AD3", "S1004_AD4",
+                                                     "S1002_AD2","S1005_AD5","S1006_AD6",
+                                                     "S1147_AD1", "S1149_AD3", "S1150_AD4",
+                                                     "S1148_AD2", "S1151_AD5", "S1152_AD6",
+                                                     "S1154_AD2","S1157_AD5","S1158_AD6"
+                                                     )) %>% column_to_rownames("SampleID.DNA") 
+df <- data.frame(df %>% group_by(Date, SludgeType ) %>% summarise_each(funs(mean)))
+rownames(df) <- c("S1001_3_4_AD1_3_4", "S1002_5_6_AD2_5_6","S1147_49_50_AD1_3_4", "S1148_51_52_AD2_5_6", "S1154_57_58_AD2_5_6")
+df$Period <- c("Inhibition","Inhibition","Recovery/Foaming","Recovery/Foaming", "Recovery/Foaming")
+df$AD <- c("AD1.3.4","AD2.5.6","AD1.3.4","AD2.5.6", "AD2.5.6")
+
+# there was also 1 samples pooled for all 6 digesters 
+df1 <- masterdata %>% 
+   as_tibble() %>% dplyr::filter(SampleID.DNA %in% c("S561_AD1", "S562_AD2", "S563_AD3",
+                                                     "S564_AD4","S565_AD5","S566_AD6"
+                                                     )) %>% column_to_rownames("SampleID.DNA") 
+df1 <- data.frame(df1 %>% group_by(Date ) %>% summarise_each(funs(mean)))
+rownames(df1) <- c("S561toS566_AD.AD6")
+df1$Period <- c("SteadyState")
+df1$AD <- c("AD1.2.3.4.5.6")
 
 # not pooled samples 
 df2 <- masterdata %>% 
-   as_tibble() %>% dplyr::filter(SampleID.CHN %in% c( "S371_Adfull", "S1007_AD1", "S1008_AD2","S1009_AD3", "S1010_AD4",
-                                                      "S1011_AD5","S1012_AD6",
-                                                     "S1201_AD1","S1202_AD2", "S1203_AD3", "S1204_AD4", "S1205_AD5", 
-                                                     "S1275_ADFull", "S1556_ADFull", 
-                                                     "S1815_ADFull","S1183_AD1","S1183_AD2","S1185_AD3", "S1186_AD4", 
-                                                     "S1187_AD5", "S1188_AD6"
-                                                     ) & 
-                                   SludgeType != c("Foam")) %>% 
-   column_to_rownames("SampleID.CHN")
+   as_tibble() %>% dplyr::filter(SampleID.DNA %in% c("F5","F55","F110","F124","F179", 
+                                                     "S119_full","S370_full", "S1273_ADFull", "S1554_ADFull", "S1813_ADFull"
+                                                     )) %>% 
+   column_to_rownames("SampleID.DNA")
 
 #combined the dfs
-metadata <- rbind(df,df2)
-#rownames(metadata)
+metadata <- rbind(df,df1, df2)
+rownames(metadata)
 metadata <- metadata %>% rownames_to_column("ID") %>% 
   mutate("SampleID" = ID) %>% column_to_rownames("ID")  %>% 
-  mutate("SampleID" = factor(SampleID, levels = c("S567toS572_AD1.6", "S1007_AD1", "S1008_AD2","S1009_AD3", "S1010_AD4", "S1011_AD5","S1012_AD6",
-                                                  "S1201_AD1","S1202_AD2", "S1203_AD3", "S1204_AD4", "S1205_AD5",
-                                                  "S1183_AD1","S1183_AD2","S1185_AD3", "S1186_AD4", "S1187_AD5", "S1188_AD6",
-                                                  "S371_full", "S1275_ADFull", "S1556_ADFull", "S1815_ADFull"
-                                                     )))
-metadata$SampleType <- c("Steady State", "Full-scale", "Control1", "Treatment1", "Control2","Control3","Treatment2","Treatment3",
-  "Control1", "Treatment1", "Control2","Control3","Treatment2","Treatment3",
-  "Control1", "Treatment1", "Control2","Control3","Treatment2","Full-scale", "Full-scale", "Full-scale")
+  mutate("SampleID" = factor(SampleID, levels = c("S561toS566_AD.AD6", "S1001_3_4_AD1_3_4", "S1002_5_6_AD2_5_6", "S1147_49_50_AD1_3_4", "S1148_51_52_AD2_5_6", "S1154_57_58_AD2_5_6",   "F5",    "F55", "F110","F124", "F179", "S119_full", "S370_full","S1273_ADFull", "S1554_ADFull","S1813_ADFull")))
+
+metadata$ramaciottieID <- str_replace_all(metadata$SampleID, c( "F5"="Chris_01", "F55"="Chris_02", "F110"="Chris_03","F124" = "Chris_04",
+                                      "F179" = "Chris_05", "S119.full" = "Chris_06", "S370.full" = "Chris_07", "S1273_ADFull" = "Chris_08",
+                                      "S1554_ADFull" = "Chris_09", "S1813_ADFull" = "Chris_10", "S561toS566_AD.AD6" = "Chris_11", "S1001_3_4_AD1_3_4" = "Chris_12",
+                                      "S1002_5_6_AD2_5_6" = "Chris_13", "S1147_49_50_AD1_3_4" = "Chris_14", "S1148_51_52_AD2_5_6" = "Chris_15", "S1154_57_58_AD2_5_6" = "Chris_16"))
+
 metadata <- metadata %>% mutate(VFAs = rowSums(select(., contains("acid"))) )
-
-## Add pH values to the 15h May (from 14th May)
-metadata[c(3,4,5,6,7,8),"pH"] <- c(7.26, 5.87, 7.36, 7.31, 5.89, 5.59) # copied from the masterdata 14th May
-metadata[c(9,10,11,12,13,14),"pH"] <- c(7.53, 7.27, 7.45, 7.47, 7.05, 6.79) # copied from the masterdate 31st May
-
-#VFAs from 29th May = add to data from 02 June for figure only
-metadata[c('S1183_AD1','S1183_AD2','S1185_AD3', 'S1186_AD4','S1187_AD5',  'S1188_AD6'),]$VFAs <- c(40.01, 2397.80, 53.71, 36.32, 5037.26, 5134.20)
-
-vars <- c("Date", "SampleType")
-metadata <- tidyr::unite(metadata, "Sample", all_of(vars),remove = FALSE )
-
-metadata$CSTR <- str_replace_all(metadata$AD, c("AD1"="C1", 
-                                      "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "Full-scale" = "Full-scale",
-                                       "AD1.2.3.4.5.6" = "CSTRs") )
-vars <- c("CSTR", "Treatment")
-metadata <- tidyr::unite(metadata, "CSTR_Treat", all_of(vars),remove = FALSE )
+metadata[c("S561toS566_AD.AD6"),c("SludgeType")] <- "Control"
 rm(df, df1, df2)
 
-## TAXA / METABOLITES PS OBJECT
-# create a metabolome ps object for easy data handling and transformations
-taxa <-  data.frame(read.csv("./data/020604-metabolimicstaxatable.csv")) %>% column_to_rownames("Sample.ID")
-taxa <-  data.frame(t(taxa))
-taxa <-  data.frame(t(taxa))
-
-## ABUNDANCES OF METABOLITES FOR PS OBJECT
-metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_responseChris.csv")) 
-# remove first three rows
-metabolome <- metabolome[c(4:nrow(metabolome)),] 
-metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
-metabolome <- data.frame(t(metabolome)) %>% 
-  rownames_to_column("ID")
-metabolome$ID <- str_replace_all(metabolome$ID, c("X48.53"="S567toS572_AD1.6", "X35"="S371_full",    "X92"="S1007_AD1",    "X93"="S1008_AD2",    "X94"="S1009_AD3",   "X95"="S1010_AD4",    "X96"="S1011_AD5" ,   "X97"="S1012_AD6",    "X101"="S1201_AD1",   "X102"="S1202_AD2",  "X103"= "S1203_AD3" , "X104.2"="S1204_AD4", "X105"="S1205_AD5",  "X107"= "S1275_ADFull",   "X142"="S1556_ADFull",  "X162"="S1815_ADFull",  "X169"= "S1183_AD1",   "X170"="S1183_AD2" ,  "X171"="S1185_AD3",  "X172"="S1186_AD4",   "X173"="S1187_AD5" ,  "X174"="S1188_AD6"))
-metabolome <- metabolome %>% column_to_rownames("ID")
-# rownames(metabolome) <- rnames   # in case for later
-metabolome <- metabolome %>% mutate_if(is.character, as.numeric)
-metabolome <- data.frame(t(metabolome))
-# Create the phyloseq object 
-psmv <-phyloseq(
-  otu_table(metabolome, taxa_are_rows = T), 
+ps <- phyloseq(
+  otu_table(tpm, taxa_are_rows = T), 
   sample_data(metadata),
-  tax_table(as.matrix(taxa))
+  tax_table(as.matrix(taxa)),
+  phy_tree(tree)
 )
-sample_data(psmv)$Treatment <-  factor(sample_data(psmv)$Treatment, levels = c("Control", "Treatment", "Full-scale", "PSTWAS"))
 
+tpm <- tpm %>% rename(SteadyState = "S561toS566_AD.AD6",
+                 Control15May24 = "S1001_3_4_AD1_3_4",
+                Treatment15May24 = "S1002_5_6_AD2_5_6",
+              Control02June24 = "S1147_49_50_AD1_3_4",
+              Treatment02June24 = "S1148_51_52_AD2_5_6",
+              Foam02June24 = "S1154_57_58_AD2_5_6") %>% 
+  dplyr::select(SteadyState, Control15May24,  Control02June24, Treatment15May24, Treatment02June24, Foam02June24)
 
-## LOG ABUNDANCES OF METABOLITES FOR PS OBJECT
- metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseChris.csv")) 
-#LOG - FULL DATA
-#metabolome <- data.frame(read.csv("/Users/christiankrohn/Library/CloudStorage/OneDrive-RMITUniversity/Documents/Project1C_files/Experiment_LongTermMonitoring/Data/Rdata/020524-metabolimicsresults_LOGresponseFULLChris.csv")) 
-# remove first three rows
-metabolome <- metabolome[c(4:nrow(metabolome)),] 
-metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
-metabolome <- data.frame(t(metabolome)) %>% 
-  rownames_to_column("ID")
-metabolome$ID
-metabolome$ID <- str_replace_all(metabolome$ID, c("X48.53"="S567toS572_AD1.6", "X35"="S371_full",    "X92"="S1007_AD1",    "X93"="S1008_AD2",    "X94"="S1009_AD3",   "X95"="S1010_AD4",    "X96"="S1011_AD5" ,   "X97"="S1012_AD6",    "X101"="S1201_AD1",   "X102"="S1202_AD2",  "X103"= "S1203_AD3" , "X104.2"="S1204_AD4", "X105"="S1205_AD5",  "X107"= "S1275_ADFull",   "X142"="S1556_ADFull",  "X162"="S1815_ADFull",  "X169"= "S1183_AD1",   "X170"="S1183_AD2" ,  "X171"="S1185_AD3",  "X172"="S1186_AD4",   "X173"="S1187_AD5" ,  "X174"="S1188_AD6"))
-metabolome <- metabolome %>% column_to_rownames("ID")
-# rownames(metabolome) <- rnames   # in case for later
-metabolome <- metabolome %>% mutate_if(is.character, as.numeric)
-metabolome <- data.frame(t(metabolome))
-
-# Create the phyloseq object 
-psml <-phyloseq(
-  otu_table(metabolome, taxa_are_rows = T), 
-  sample_data(metadata),
-  tax_table(as.matrix(taxa))
-)
-sample_data(psml)$Treatment <-  factor(sample_data(psml)$Treatment, levels = c("Control", "Treatment", "Full-scale", "PSTWAS"))
-
-
-
-#LOG - FULL DATA
-taxa <-  data.frame(read.csv("./data/020524-metabolimicstaxatableFULL.csv")) %>% column_to_rownames("Sample.ID")
-taxa <-  data.frame(t(taxa))
-taxa <-  data.frame(t(taxa))
-metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseFULLChris.csv")) 
-# remove first three rows
-metabolome <- metabolome[c(4:nrow(metabolome)),] 
-metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
-metabolome <- data.frame(t(metabolome)) %>% 
-  rownames_to_column("ID")
-metabolome$ID <- str_replace_all(metabolome$ID, c("X48.53"="S567toS572_AD1.6", "X35"="S371_full",    "X92"="S1007_AD1",    "X93"="S1008_AD2",    "X94"="S1009_AD3",   "X95"="S1010_AD4",    "X96"="S1011_AD5" ,   "X97"="S1012_AD6",    "X101"="S1201_AD1",   "X102"="S1202_AD2",  "X103"= "S1203_AD3" , "X104.2"="S1204_AD4", "X105"="S1205_AD5",  "X107"= "S1275_ADFull",   "X142"="S1556_ADFull",  "X162"="S1815_ADFull",  "X169"= "S1183_AD1",   "X170"="S1183_AD2" ,  "X171"="S1185_AD3",  "X172"="S1186_AD4",   "X173"="S1187_AD5" ,  "X174"="S1188_AD6"))
-metabolome <- metabolome %>% column_to_rownames("ID")
-# rownames(metabolome) <- rnames   # in case for later
-metabolome <- metabolome %>% mutate_if(is.character, as.numeric)
-metabolome <- data.frame(t(metabolome))
-
-psmlf <-phyloseq(
-  otu_table(metabolome, taxa_are_rows = T), 
-  sample_data(metadata),
-  tax_table(as.matrix(taxa))
-)
+## COLOURS
+colstree <- readRDS("./data/treecolsvector") # from 16S data phyla
+treecols2 <- colstree
+df <- psmelt(ps) %>% 
+  dplyr::filter(Abundance > 0) %>% 
+  arrange(desc(Abundance))
+names <- df$Phylum  %>% unique() # metagenome names (from GenBank nr)
+#phyla <- prevalencedf(ps, Phylum)
+treecols2 <- colstree
+bacillota <- c("#3BA0FDFF", "#3BA0FDFF", "#3BA0FDFF", "#3BA0FDFF", "#3BA0FDFF","#3BA0FDFF", "#3BA0FDFF")
+names(bacillota) <- c("Bacillota_A","Bacillota_B","Bacillota_C","Bacillota_D", "Bacillota_E", "Bacillota_G","Bacillota_I")
+desulfob <- c("#1AE4B6FF") 
+names(desulfob) <- c("Desulfobacterota_G") 
+names(treecols2) <- c("Pseudomonadota","Bacillota" , "Bacteroidota", "Actinomycetota", "",
+                      "Planctomycetota", "Verrucomicrobiota","Acidobacteriota", 
+                      "Desulfobacterota","Patescibacteria","Spirochaetota", "Synergistota", "Halobacteriota",
+                     "Bdellovibrionota", "Campilobacterota", "Cloacimonadota",
+                     "Cyanobacteriota", "Dependentiae", "Euryarchaeota", "Fibrobacterota",
+                     "Thermotogota", "Myxococcota","", "Caldatribacteriota", 
+                     "Caldisericota","Crenarchaeota",
+                     "Elusimicrobiota","Fusobacteriota","Gemmatimonadota", "Hydrogenedentota", 
+                     "Latescibacterota", "Nitrospirota","Sumerlaeota", "CK-2C2-2", "Coprothermobacterota", "Dictyoglomota", 
+                     "SAR324_clade(Marine_group_B)", "Sva0485", "Thermoplasmatota", "", "", "Methanobacteriota", "WS4", "Atribacterota",
+                     "Armatimonadota","Chloroflexota")
+treecols <- c(treecols2, bacillota, desulfob)
 ```
 
 
-## Figure 7 
-### Complex heatmap
-```{r}
-library(circlize)
-library(ComplexHeatmap)
-# Filter out full-scale AD
-ps.tmp <- prune_samples(sample_data(psml)$AD != c("Full-scale"), psml)
-ps.tmp <- prune_samples(sample_data(ps.tmp)$AD %notin% c("AD1.2.3.4.5.6"), ps.tmp)
-ps.tmp <- phyloseq::subset_taxa(ps.tmp, CompoundName %notin% c("23-1949_Pentadecanoic acid, n- [1TMS] COPY", 
-                                                               "29-2038.3_(910; 9-(Z)-Hexadecanoic acid [1TMS]",
-                                                               "58-1775.1_Glycerol-3-phosphate, DL- [4TMS]", 
-                                                               "26-2267_Permethyl-oligosiloxane"))
-sample_data(ps.tmp)$CSTR <- str_replace_all(sample_data(ps.tmp)$AD, c("AD1"="C1", 
-                                       "AD2"="T1", 
-                                          "AD3"="C2", 
-                                            "AD4"="C3", 
-                                              "AD5"="T2", 
-                                               "AD6"="T3",
-                                                "AD_full" = "Full-scale") )
+## Figure 7 - tree bins
 
-col_fun = colorRamp2(c(min(otu_table(ps.tmp)), mean(otu_table(ps.tmp)), max(otu_table(ps.tmp))), c("black", "steelblue", "#FCFDBFFF"))
-taxtable <- data.frame(tax_table(ps.tmp))
-set.seed(1232145)
-colAnn <- HeatmapAnnotation(
-        Date = as.character(sample_data(ps.tmp)$Date),
-        col = list(Date = c("2023-04-26" = "#ABB065", "2023-05-01" = "#D2A277","2023-05-15" = "#E495A5", 
-                             "2023-06-02" = "#72BB83", "2023-06-05" = "#39BEB1", "2023-06-09" = "#64B5D6", 
-                             "2023-06-28" = "#D995CF", "2023-08-09" = "#ACA4E2")),
-       DNA = anno_barplot(sample_data(ps.tmp)$DNA_mg_gCOD, width = unit(4, "cm")), 
-       VFAs = anno_barplot(sample_data(ps.tmp)$VFAs, width = unit(4, "cm"))
-                        )
-set.seed(1232145)
-row_ha = rowAnnotation(`KEGG class` = taxtable$Label)
+```{r fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+filtervec <- completnessdf %>% dplyr::filter(Quality %in% c("Medium", "High"))
 
-#cols <- colorspace::rainbow_hcl(length(unique(sample_data(ps.tmp)$Date)))
-#row_ano = rowAnnotation(foo = anno_block(gp = gpar(fill = 2:4)))
+ps.phylo <- ps
+# Filter the phyloseq object
+ps.phylo  <- prune_taxa(taxa_names(ps.phylo ) %in% rownames(filtervec), ps.phylo )
 
-set.seed(1232145)
- fig <- Heatmap((otu_table(ps.tmp)), 
-        name = "Abundances", #title of legend
-        row_names_gp = gpar(fontsize = 6.5),
-        #split = sample_data(ps.tmp)$Treatment,
-        col_fun,
-        show_column_names = TRUE,
-         show_row_names = TRUE,
-       row_labels = c(data.frame(tax_table(ps.tmp))$CompoundName2),
-       column_labels = c(data.frame(sample_data(ps.tmp))$CSTR),
-       column_names_gp = gpar(fontsize = 10),
-       clustering_method_columns = "ward.D",
-       top_annotation = colAnn,
-       left_annotation = row_ha,
-    row_km = 4
-       )    
-       #column_split = 4
-        # Text size for row names
- fig
- 
- png("./Figures/heatmap_metabolites.png", width = 17, height = 22,pointsize = 12,units="cm",res=300)
-draw(fig, padding = unit(c(3, 3, 2, 2), "mm"), merge_legend = TRUE) ## see right heatmap in following
-dev.off()
+taxa_names(ps.phylo)
+# use custom prevalence table function and select phyloseq object and phylum-level
+taxa.df.phylum <- prevalencedf(ps.phylo, Phylum)
+# set seed differently will change the random sampling of the colours
+# set.seed(1)
+# randomly sample colours from this colour scheme
+# Use the same tree cols for all figures 
+ordervec <- (taxa.df.phylum %>% 
+            dplyr::filter(Total_abundance >= 22300.611) %>% 
+              arrange(Phylum))$Phylum
+# cat(paste(shQuote(ordervec, type="cmd"), collapse=", ")) # create comma separated vector
 
-```
+# If you prefer number of ASVs per each Phylum to be shown in legend:
+# create a label vector to change the names in the legend. Needs to be in correct order. 
+labelvec <- (taxa.df.phylum %>% 
+            dplyr::filter(Total_abundance >= 22300.611) %>% 
+              arrange(Phylum) %>% 
+            mutate(Phylum = paste0(Phylum, " (", n, ")")))$Phylum
 
-### Barplot omu
-```{r}
-library(omu)
-#https://cran.r-project.org/web/packages/omu/vignettes/Omu_vignette.html#Introduction_to_omu
-
-ps.tmp <- prune_samples(sample_data(psml)$Treatment %in% c("Control","Treatment"), psml)
-ps.tmp <- prune_samples(sample_data(ps.tmp)$AD %notin% c("AD1.2.3.4.5.6"), ps.tmp)
-ps.tmp <- phyloseq::subset_taxa(ps.tmp, CompoundName %notin% c("23-1949_Pentadecanoic acid, n- [1TMS] COPY", 
-                                                               "29-2038.3_(910; 9-(Z)-Hexadecanoic acid [1TMS]",
-                                                               "58-1775.1_Glycerol-3-phosphate, DL- [4TMS]"))
-counts <- data.frame(otu_table(ps.tmp)) 
-counts$Metabolite <- data.frame(tax_table(ps.tmp))$CompoundName2
-counts$KEGG <- data.frame(tax_table(ps.tmp))$KEGG
-counts$Class <- data.frame(tax_table(ps.tmp))$Label  # based on a mix of KEGG parent and subclasses as per Dan's advice
-counts$Class2 <- data.frame(tax_table(ps.tmp))$Subclass_1
-counts <- counts %>% dplyr::select(Metabolite, KEGG, Class, Class2, S1007_AD1:S1188_AD6)
-# 9Z hexadeacanoic acid 
-# DL-Glycerol-3-phosphate
-# n-Pentadecanoic acid
-# were aggregated - summed - which is not technically correct. 
-meta.tmp <- data.frame(sample_data(ps.tmp)) %>% 
-  rename(Date_type = "Sample") %>% 
-           rename(ID = "AD") %>% 
-  rownames_to_column("Sample") %>% 
-  dplyr::select(Sample, ID, Treatment)
-
-DF_stats <- omu_summary(count_data = counts, 
-                        metadata = meta.tmp, numerator = "Control", 
-                        denominator = "Treatment", response_variable = "Metabolite", 
-                        Factor = "Treatment", log_transform = FALSE, p_adjust = "BH", 
-                        test_type = "welch", paired = FALSE)
-
-# paired test does not work. Maybe because of uneven number of replicates (i.e. 2 and 3 per digester)
-#Error in t.test.default(x = respVar[, 1L], y = respVar[, 2L], paired = TRUE,  : 
- # not enough 'x' observations
-
-DF_anova <- omu_anova(count_data = counts, metadata = meta.tmp, response_variable = "Metabolite", model = ~ Treatment)
-
-# Gathering Functional Orthology and Gene Data
-#DF_stats_sub <- subset(DF_stats, Class=="Organic acids")
-# DF_stats_sub <- DF_stats[which(DF_stats[,"padj"] <= 0.05),]
-# DF_stats_sub_KO <- KEGG_gather(DF_stats_sub)
-# To explore more 
-
-## barplot 
-DF_stats_counts <- data.frame(DF_stats) %>% 
-  dplyr::filter(padj <= 0.05) %>% 
-  dplyr::mutate('Label' = if_else(log2FoldChange > 0, "Increase", "Decrease"))
-DF_stats_counts$Label[28] <- "Increase" 
-DF_stats_counts <- DF_stats_counts %>% group_by(Class, Label) %>%
-   summarise(n= n()) %>% 
-  mutate('Significant_changes' = if_else(Label %in% c("Decrease"), n*-1, n*1)) %>% 
- arrange(desc(n))
-DF_stats_counts$Class <- factor(DF_stats_counts$Class, levels = c(DF_stats_counts$Class %>% unique()))
-DF_stats_counts$Label <- factor(DF_stats_counts$Label, levels = c("Increase","Decrease"))
-
-p1 <- ggplot(DF_stats_counts, aes(fill=Label, y=Significant_changes, x=Class)) + 
-  geom_bar(position="stack", stat="identity", colour = "black") +
-   theme_classic() +
+p <- mytreefunction(ps.phylo, 
+         layout = "fan",
+         branch.length = "none",
+         offset.text = 5,
+         pwidth = 0.05,
+         open.angle = 25) + 
+         scale_colour_manual("Phylum (number of MAGs)",
+                              values = treecols, 
+                              limits = ordervec,
+                              label = labelvec) +
+      guides(colour = guide_legend(override.aes = list(size = 5), 
+                               keywidth = 0.5, 
+                                keyheight = 0.5,
+                               ncol = 1,
+                               order = 1)) +
   theme(
-    axis.title.x = element_blank(),
-    legend.title = element_blank(),
-    legend.position = c(0.8,0.8),
-    axis.text.y = element_text(size = 10),
-    axis.title.y = element_text(size = 8.5),
-    axis.text.x = element_text(angle = 65,  hjust=1, size = 7.5)
-  ) +
-  scale_fill_manual(values = c("firebrick2","dodgerblue2" )) +
-  ylab("Number of significant changes")
+    legend.text = element_text(size = 12) # Set legend text size
+  )
+      ggtitle("Bins RMIT AD 01 May, 15 May, 02 June") 
+p <- rotate_tree(p, 100)
+
+### Heatmap with completeness 
+p <- p %<+% tiplabeldf + geom_tiplab2(size = 3.75, offset = 6.5, aes(label = Label)) +
+  xlim(0, 36)
+
+p <- gheatmap(p, completnessdf["Quality"], offset=0.01, width=.03, font.size = 2.5, colnames = TRUE, 
+          colnames_angle=95, colnames_offset_y = .25, custom_column_labels = ""
+         ) +
+    scale_fill_manual(name="MAG quality", values = c("#82E0AA", "#1D8348"),
+                      limits = c("Medium", "High"),
+                      label = c("Medium", "High"),
+                      guide = guide_legend(order = 2)) 
+
+#Options
+# "Low (<50% complete or >10% contaminated)", "Medium (>50% complete & <10% contaminated)", "High (>90% complete & <5% contaminated)"
+# ggsave(plot = ph, "./Figures/bintree.png", height=35, width=35, units='cm', dpi=600, limitsize = FALSE)
+
+### Heatmap with TPM
+p2 <- p + new_scale_fill()
+p2 <- gheatmap(p2, as.matrix(tpm), offset=0.5, width=0.25, font.size = 3, hjust = 1,
+         colnames_angle=-10, colnames_offset_y = 0, colnames_position = "top", 
+         custom_column_labels = c("Steady State - Day 61", "Control - Day 75", "Control - Day 93", 
+                                  "Treatment - Day 75", "Treatment - Day 93", "Foam - Day 93")
+         ) +
   
-p1
-ggsave(plot = p1, "./Figures/barplot_metabolites.png", height=7.5, width=6, units='cm', dpi=300)
-```
+     scale_fill_viridis_c("TPM", option = "rocket", direction = -1, begin = 0, end = 1)  
+p2
 
-## Supp. figure 12 PCA metabolites
-```{r}
+ggsave(plot = p2, "./Figures/bintree_tpm_daysop.png", height=30, width=35, units='cm', dpi=300, limitsize = FALSE)
 
-xdim <- c(-3,3)
-ydim <- c(-3,3)
 
-# LOG RATIOS FULL
-psobject <- psmlf # data are log-ratios (log(standard/Raw response)) 
-ordination <- phyloseq::ordinate(psobject , "RDA") # using the centred-log transformed abundances
-#plotting ordination
-p3 <- phyloseq::plot_ordination(psobject,
-                                        ordination ,
-                                       shape = "Treatment",
-                                        color = "Treatment"
-                                        # option to add shapes to data symbols
-                                        )  +
-    annotate(geom = 'text', label = paste("Composition of 221 metabolites \n PCA, log(response ratio)"),
-             x = -Inf, y = -Inf, hjust = -0.05, vjust = -0.5, size = 3) +
-          ylim(xdim) + xlim(xdim) + ggtitle("Log(response ratios) of all peaks") +
-           theme(plot.title = element_text(size = 10),
-                 ) +
-  geom_text(aes(label = sample_data(psobject)$Date), nudge_y = -0.12, size = 2, show.legend = FALSE)
-
-p3
-
-ggsave(plot = p3, "./Figures/Sup_metabomlome_allpeaks.png", height=10, width=13, units='cm', dpi=600)
 ```
