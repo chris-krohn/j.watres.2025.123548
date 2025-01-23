@@ -106,7 +106,7 @@ taxa <-  data.frame(t(taxa))
 taxa <-  data.frame(t(taxa))
 
 ## ABUNDANCES OF METABOLITES FOR PS OBJECT
-metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_responseChris.csv")) 
+metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_response.csv")) 
 # remove first three rows
 metabolome <- metabolome[c(4:nrow(metabolome)),] 
 metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
@@ -127,9 +127,7 @@ sample_data(psmv)$Treatment <-  factor(sample_data(psmv)$Treatment, levels = c("
 
 
 ## LOG ABUNDANCES OF METABOLITES FOR PS OBJECT
- metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseChris.csv")) 
-#LOG - FULL DATA
-#metabolome <- data.frame(read.csv("/Users/christiankrohn/Library/CloudStorage/OneDrive-RMITUniversity/Documents/Project1C_files/Experiment_LongTermMonitoring/Data/Rdata/020524-metabolimicsresults_LOGresponseFULLChris.csv")) 
+ metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponse.csv")) 
 # remove first three rows
 metabolome <- metabolome[c(4:nrow(metabolome)),] 
 metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
@@ -156,7 +154,7 @@ sample_data(psml)$Treatment <-  factor(sample_data(psml)$Treatment, levels = c("
 taxa <-  data.frame(read.csv("./data/020524-metabolimicstaxatableFULL.csv")) %>% column_to_rownames("Sample.ID")
 taxa <-  data.frame(t(taxa))
 taxa <-  data.frame(t(taxa))
-metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseFULLChris.csv")) 
+metabolome <- data.frame(read.csv("./data/020524-metabolimicsresults_LOGresponseFULL.csv")) 
 # remove first three rows
 metabolome <- metabolome[c(4:nrow(metabolome)),] 
 metabolome <- metabolome %>% remove_rownames %>% column_to_rownames("Samples")
