@@ -31,7 +31,7 @@ names(cols) <- c("Control", "Treatment", "Full-scale", "PSTWAS", "Foam")
 
 ## LOAD masterdata
 # change this path to where you store the .csv file. you can provide an absolute path like this. Check the path syntax for Windows as it might be different. 
-masterdata <- read.csv("./data/masterdataProject1C_Jan25.csv")
+masterdata <- read.csv("./data/masterdataProject1C.csv")
 masterdata <-  masterdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 # Make AD, Treatment and SludgeType = factors
@@ -146,7 +146,7 @@ MC_names <- read_tsv("./data/metacyc_pathway_info_full.tsv") %>%
   dplyr::select(-NAMES) %>% 
   dplyr::rename(Pathway2 = "COMMON-NAME") 
 # "tax_table new"
-MC_names_new <- read_tsv("./data/metacyc_pathway_info_23jan.tsv") 
+MC_names_new <- read_tsv("./data/metacyc_pathway_info.tsv") 
 #Combine
 MC_names <- MC_names_new %>% dplyr::full_join(MC_names, by = "Id") %>% 
   filter(Id %in% pws$Id) %>% 
@@ -194,7 +194,7 @@ ps.onp.ncbi.kraken <- phyloseq(
 
 
 ## FOAM DATA
-foamdata <- read.csv("./data/foam_potential_list3Copy_CK.csv")
+foamdata <- read.csv("./data/foam_potential.csv")
 foamdata <-  foamdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 foamdata <-  foamdata %>% column_to_rownames("X.SludgeID")
