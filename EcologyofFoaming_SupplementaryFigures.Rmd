@@ -194,7 +194,7 @@ ps.onp.ncbi.kraken <- phyloseq(
 
 
 ## FOAM DATA
-foamdata <- read.csv("./data/foam_potential.csv")
+foamdata <- read.csv("./data/foam_potential_list.csv")
 foamdata <-  foamdata %>%
   mutate(Date = lubridate::dmy(as.character(Date)) )
 foamdata <-  foamdata %>% column_to_rownames("X.SludgeID")
@@ -1060,6 +1060,7 @@ g1 <- ggarrange(p1, theme_void(), p2, common.legend = TRUE, nrow = 1, legend = "
 g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
 
 ggsave(plot = g1,  "./Figures/areaplot_vfas_daysop.pdf", height=9, width=17, units='cm', dpi=300)
+ggsave(plot = g1,  "./Figures/areaplot_vfas_daysop.png", height=9, width=17, units='cm', dpi=300)
 ```
 
 
@@ -1377,6 +1378,7 @@ g1 <- ggarrange(p1, p2, common.legend = TRUE, widths = c(0.52,0.48), legend = "t
 g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
 
 ggsave( "./Figures/Sup_areaplot_all_phylum.pdf", height=27, width=26, units='cm', dpi=300)
+ggsave( "./Figures/Sup_areaplot_all_phylum.png", height=27, width=26, units='cm', dpi=300)
 ```
 
 ## Supp. figure S13 Ampviz heatmaps 16S top30
