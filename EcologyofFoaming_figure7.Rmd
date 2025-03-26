@@ -1,6 +1,5 @@
 ---
-title: Ecology of foam establishment during anaerobic digestion of wastewater sludge
-  following process disturbance - Figure 7
+title: Microbial population shifts during disturbance induced foaming in anaerobic digestion of primary and activated sludge - Figure 7
 output:
   html_document:
     df_print: paged
