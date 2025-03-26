@@ -1456,7 +1456,8 @@ g2 <- ggarrange(ggplot() + theme_void(), h2, widths = c(0.05, 0.95))
 
 g3 <- ggarrange(g1, g2, nrow = 2, labels = "AUTO", heights = c(0.68,0.42))
 ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.png", height=29, width=24, units='cm', dpi=300) #png
-ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.tiff", height=29, width=24, units='cm', dpi=300) #pdf
+ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.tiff", height=29, width=24, units='cm', dpi=300) #tiff
+ggsave(plot = g3,  "./Figures/areaplot_top30_heatmapampviz.pdf", height=29, width=24, units='cm', dpi=300) #pdf
 
 ```
 
@@ -2245,8 +2246,10 @@ pca1 <- ggplot(ord, aes(x = PC1, y = PC2)) +
 g1 <- ggarrange(ggarrange(p, pca1, widths = c(0.45, 0.55)),  ggarrange(lp, lp.g),
                 ncol = 1, nrow = 2, 
                 heights = c(0.4,0.6), labels = "AUTO")
-g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
+#g1 <- annotate_figure(g1, bottom = textGrob("Day of operation", gp = gpar(cex = 0.9)))
 ggsave(plot = g1,  "./Figures/scatterpluslollie_pca.png", height=18, width=20, units='cm', dpi=300)
+ggsave(plot = g1,  "./Figures/scatterpluslollie_pca.pdf", height=18, width=20, units='cm', dpi=300)
+ggsave(plot = g1,  "./Figures/scatterpluslollie_pdf.tiff", height=18, width=20, units='cm', dpi=300)
 
 ```
 
