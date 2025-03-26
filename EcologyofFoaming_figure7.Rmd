@@ -1,6 +1,6 @@
 ---
 title: Ecology of foam establishment during anaerobic digestion of wastewater sludge
-  following process disturbance - Figure 8
+  following process disturbance - Figure 7
 output:
   html_document:
     df_print: paged
